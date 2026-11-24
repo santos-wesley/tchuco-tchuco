@@ -22,9 +22,9 @@ COMANDOS = {
     "next": ("right", "seta direita"),
     "prev": ("left", "seta esquerda"),
 }
-# Segundos sem receber nada = conexão morta. O ntfy manda um "keepalive"
-# periódico, então um silêncio longo significa que a conexão caiu.
-TIMEOUT = 90
+# Segundos sem receber nada = conexão morta. O ntfy.sh manda um "keepalive"
+# a cada 45 s, então um silêncio maior que isso significa que a conexão caiu.
+TIMEOUT = 60
 # Teto, em segundos, da espera entre tentativas de reconexão.
 ESPERA_MAX = 15
 
