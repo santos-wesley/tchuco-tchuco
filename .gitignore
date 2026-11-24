@@ -1,0 +1,11 @@
+# Segredos locais: nunca vão para o git
+watch/source/Config.mc
+*.der
+*.pem
+
+# Saída do compilador Monkey C
+watch/bin/
+
+# Python
+__pycache__/
+.venv/
