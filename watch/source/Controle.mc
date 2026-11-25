@@ -196,6 +196,7 @@ class Controle {
         saindo = false;
         avisando = false;
         _statusAte = 0;
+        _ocupado = false;                       // nada pendente da vez anterior
         _delta = 0;
         _lote = 0;
         _fila = null;
