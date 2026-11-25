@@ -7,7 +7,8 @@ import Toybox.WatchUi;
 //   START         próximo slide
 //   DOWN          slide anterior
 //   BACK          pede confirmação; um segundo BACK em seguida fecha o app
-//   segurar UP    ajuste do aviso de tempo (UP/DOWN escolhem, START grava)
+//   segurar UP    ajustes: tempo total e intervalo do aviso
+//                 (UP aumenta, DOWN diminui, START grava, BACK sai)
 //
 // Usa InputDelegate (e não BehaviorDelegate) de propósito: no BehaviorDelegate
 // um toque na tela vira onSelect e um deslizar vira onNextPage/onPreviousPage.
@@ -40,16 +41,16 @@ class TchucoDelegate extends WatchUi.InputDelegate {
         var back = (tecla == WatchUi.KEY_ESC)
                 && (agora - _backEm < 2000 || agora - _toqueEm > 800);
 
-        if (_controle.ajustando) {
-            // Ajuste do aviso de tempo.
+        if (_controle.ajuste != 0) {
+            // Ajustes (tempo total e aviso).
             if (tecla == WatchUi.KEY_UP) {
-                _controle.mudarOpcao(-1);
+                _controle.mudarOpcao(1);            // mais minutos
             } else if (tecla == WatchUi.KEY_DOWN) {
-                _controle.mudarOpcao(1);
+                _controle.mudarOpcao(-1);           // menos minutos
             } else if (tecla == WatchUi.KEY_ENTER) {
-                _controle.fecharAjuste(true);       // START grava
+                _controle.gravarAjuste();           // START grava e segue
             } else if (back) {
-                _controle.fecharAjuste(false);      // BACK sai sem gravar
+                _controle.sairDoAjuste();           // BACK sai sem gravar
             }
         } else if (tecla == WatchUi.KEY_ENTER) {
             _controle.comando("next");              // START: avança

@@ -7,7 +7,8 @@ import Toybox.System;
 import Toybox.Timer;
 import Toybox.WatchUi;
 
-// Estado da apresentação e envio dos comandos ("next"/"prev") para o ntfy.
+// Estado da apresentação: envio dos comandos ("next"/"prev") para o ntfy,
+// tempo (modo livre ou cronometrado) e ajustes.
 //
 // Cada comando passa por duas etapas, sempre uma requisição por vez:
 //   1) publicar ("ENVIANDO"): POST do comando no ntfy;
@@ -16,25 +17,29 @@ import Toybox.WatchUi;
 // O "OK" só aparece depois da confirmação do computador. Um clique novo tem
 // prioridade sobre a conferência do comando anterior.
 class Controle {
-    private const TENTATIVAS as Number = 3;        // consultas antes de desistir
-    private const ESPERA_MS as Number = 700;       // pausa antes de cada consulta
-    private const VIBRA_FORCA as Number = 25;      // 0 a 100 (veja vibrar)
-    private const VIBRA_CURTA as Number = 50;      // ms: confirmado, aviso de tempo
-    private const VIBRA_LONGA as Number = 300;     // ms: falha
-    private const AVISO_TOQUES as Number = 3;      // vibrações por aviso, 1 por s
-    // Opções do aviso de tempo, em minutos (0 = desligado).
-    private const OPCOES as Array<Number> = [0, 1, 2, 3, 5, 10, 15, 20, 30];
+    private const TENTATIVAS as Number = 3;     // consultas antes de desistir
+    private const ESPERA_MS as Number = 700;    // pausa antes de cada consulta
+    // Vibração: intensidade de 0 a 100 e duração em ms (veja vibrar).
+    private const SUAVE as Number = 25;
+    private const FORTE as Number = 100;
+    private const CURTA_MS as Number = 50;      // confirmado e aviso de tempo
+    private const LONGA_MS as Number = 300;     // falha
+    private const FIM_MS as Number = 500;       // cada vibração do fim do tempo
+    private const AVISO_TOQUES as Number = 3;   // vibrações suaves por aviso
+    private const FIM_TOQUES as Number = 5;     // vibrações fortes no fim
+    private const MAX_MIN as Number = 180;      // maior valor dos ajustes
 
-    var saindo as Boolean = false;              // esperando o 2º BACK para sair
-    var ajustando as Boolean = false;           // escolhendo o aviso de tempo
-    var opcao as Number = 0;                    // minutos mostrados no ajuste
     var status as String = "PRONTO";            // situação do último envio
     var detalhe as String = "";                 // tempo da confirmação ou erro
     var cor as Graphics.ColorType = Graphics.COLOR_BLACK;   // faixa de status
     var slide as Number = 1;                    // contador de slides
     var inicio as Number? = null;               // System.getTimer() do 1º clique
-    var avisoMin as Number = 5;                 // aviso de tempo: minutos (0 = não)
+    var duracaoMin as Number = 0;               // 0 = modo livre; senão, minutos
+    var avisoMin as Number = 5;                 // aviso a cada N minutos (0 = não)
     var avisando as Boolean = false;            // aviso de tempo em andamento
+    var saindo as Boolean = false;              // esperando o 2º BACK para sair
+    var ajuste as Number = 0;                   // 0 = fora, 1 = tempo, 2 = aviso
+    var opcao as Number = 0;                    // minutos mostrados no ajuste
 
     private var _noAr as Boolean = false;       // há uma requisição em andamento
     private var _fila as String? = null;        // no máximo UM comando na fila
@@ -44,17 +49,85 @@ class Controle {
     private var _tentativa as Number = 0;       // consultas já feitas
     private var _clique as Number = 0;          // System.getTimer() do envio
     private var _pausa as Timer.Timer = new Timer.Timer();
-    private var _avisos as Number = 0;          // avisos de tempo já dados
-    private var _toques as Number = 0;          // vibrações que faltam no aviso
-    private var _modoEm as Number = 0;          // último botão em saindo/ajustando
+    private var _proxAviso as Number = 0;       // próximo aviso: segundos que faltam
+    private var _fimAvisado as Boolean = false; // o fim do tempo já foi avisado
+    private var _suaves as Number = 0;          // vibrações suaves ainda a dar
+    private var _fortes as Number = 0;          // vibrações fortes ainda a dar
+    private var _modoEm as Number = 0;          // último botão em saindo/ajuste
 
     function initialize() {
-        // O intervalo do aviso de tempo fica guardado no relógio.
-        var salvo = Application.Storage.getValue("avisoMin");
-        if (salvo instanceof Number) {
-            avisoMin = salvo;
+        // Os ajustes ficam guardados no relógio.
+        duracaoMin = lerAjuste("duracaoMin", 0);
+        avisoMin = lerAjuste("avisoMin", 5);
+    }
+
+    private function lerAjuste(chave as String, padrao as Number) as Number {
+        var valor = Application.Storage.getValue(chave);
+        if (valor instanceof Number) {
+            return valor;
+        }
+        return padrao;
+    }
+
+    // ---------------------------------------------------------------- tempo
+
+    // Segundos de apresentação já decorridos (0 antes do primeiro clique).
+    function decorrido() as Number {
+        var ini = inicio;
+        if (ini == null) {
+            return 0;
+        }
+        return (System.getTimer() - ini) / 1000;
+    }
+
+    // Recalcula o próximo aviso a partir do tempo que falta agora. No modo
+    // cronometrado os avisos caem quando faltam múltiplos de avisoMin
+    // (por exemplo: faltam 10, faltam 5).
+    private function programarAvisos() as Void {
+        var falta = duracaoMin * 60 - decorrido();
+        var passo = avisoMin * 60;
+        _proxAviso = 0;
+        if (passo > 0 && falta > 0) {
+            _proxAviso = ((falta - 1) / passo) * passo;
+        }
+        _fimAvisado = (falta <= 0);
+        _suaves = 0;
+        _fortes = 0;
+    }
+
+    // Chamado pela tela uma vez por segundo.
+    function tique() as Void {
+        // A pergunta de saída e o ajuste se desfazem sozinhos se ninguém mexer.
+        var parado = System.getTimer() - _modoEm;
+        if (parado > 3000) {
+            saindo = false;
+        }
+        if (parado > 8000) {
+            ajuste = 0;
+        }
+        // Modo cronometrado: avisos durante a contagem e alarme no fim.
+        if (inicio != null && duracaoMin > 0) {
+            var falta = duracaoMin * 60 - decorrido();
+            if (!_fimAvisado && falta <= 0) {
+                _fimAvisado = true;
+                _fortes = FIM_TOQUES;           // o tempo acabou
+            } else if (_proxAviso > 0 && falta <= _proxAviso) {
+                _proxAviso -= avisoMin * 60;
+                _suaves = AVISO_TOQUES;
+            }
+        }
+        // Uma vibração por segundo até completar o aviso.
+        avisando = (_fortes > 0 || _suaves > 0);
+        if (_fortes > 0) {
+            _fortes -= 1;
+            vibrar(FORTE, FIM_MS);
+        } else if (_suaves > 0) {
+            _suaves -= 1;
+            vibrar(SUAVE, CURTA_MS);
         }
     }
+
+    // -------------------------------------------------------- sair e ajustes
 
     // BACK: o primeiro só pergunta; um segundo BACK em 3 s devolve true.
     function pedirSaida() as Boolean {
@@ -67,49 +140,65 @@ class Controle {
         return false;
     }
 
-    // Segurar UP: entra no ajuste do aviso de tempo.
+    // Segurar UP: abre os ajustes, começando pelo tempo total.
     function abrirAjuste() as Void {
         saindo = false;
-        ajustando = true;
-        opcao = avisoMin;
+        ajuste = 1;
+        opcao = duracaoMin;
         _modoEm = System.getTimer();
         WatchUi.requestUpdate();
     }
 
-    // UP e DOWN no ajuste: opção anterior (-1) ou seguinte (+1).
-    function mudarOpcao(passo as Number) as Void {
-        var total = OPCOES.size();
-        opcao = OPCOES[(OPCOES.indexOf(opcao) + passo + total) % total];
+    // UP (+1) e DOWN (-1) no ajuste: de 1 em 1 minuto até 30, de 5 em 5 até
+    // 60 e de 15 em 15 até 180. Zero vale "LIVRE" (tempo) ou "DESLIGADO" (aviso).
+    function mudarOpcao(sentido as Number) as Void {
+        var passo = 15;
+        if (opcao < 30 || (opcao == 30 && sentido < 0)) {
+            passo = 1;
+        } else if (opcao < 60 || (opcao == 60 && sentido < 0)) {
+            passo = 5;
+        }
+        opcao += sentido * passo;
+        if (opcao < 0) {
+            opcao = 0;
+        } else if (opcao > MAX_MIN) {
+            opcao = MAX_MIN;
+        }
         _modoEm = System.getTimer();
         WatchUi.requestUpdate();
     }
 
-    // START grava a opção no relógio; BACK sai sem gravar.
-    function fecharAjuste(gravar as Boolean) as Void {
-        if (gravar) {
+    // START no ajuste: grava no relógio e passa para o ajuste seguinte.
+    function gravarAjuste() as Void {
+        if (ajuste == 1) {
+            duracaoMin = opcao;
+            Application.Storage.setValue("duracaoMin", opcao);
+            ajuste = (opcao > 0) ? 2 : 0;       // no modo livre não há aviso
+            opcao = avisoMin;
+        } else {
             avisoMin = opcao;
             Application.Storage.setValue("avisoMin", opcao);
-            _avisos = marcos();                 // conta os próximos a partir daqui
-            _toques = 0;
+            ajuste = 0;
         }
-        ajustando = false;
+        programarAvisos();
+        _modoEm = System.getTimer();
         WatchUi.requestUpdate();
     }
 
-    // Quantos intervalos de aviso já se passaram desde o início.
-    private function marcos() as Number {
-        var ini = inicio;
-        if (ini == null || avisoMin <= 0) {
-            return 0;
-        }
-        return (System.getTimer() - ini) / 60000 / avisoMin;
+    // BACK no ajuste: sai sem gravar o que está na tela.
+    function sairDoAjuste() as Void {
+        ajuste = 0;
+        WatchUi.requestUpdate();
     }
+
+    // -------------------------------------------------------------- comandos
 
     // Chamado pelos botões com "next" ou "prev".
     function comando(cmd as String) as Void {
         saindo = false;                         // desiste de sair
         if (inicio == null) {
-            inicio = System.getTimer();         // o cronômetro parte no 1º clique
+            inicio = System.getTimer();         // o tempo parte no 1º clique
+            programarAvisos();
         }
         if (_noAr) {
             _fila = cmd;                        // fila de 1: vale o último clique
@@ -217,7 +306,7 @@ class Controle {
                 _delta = 0;
                 mostrar("SEM PC", (codigo == 200) ? "sem resposta"
                         : "código " + codigo, Graphics.COLOR_RED);
-                vibrar(VIBRA_LONGA);
+                vibrar(SUAVE, LONGA_MS);
             }
         }
         WatchUi.requestUpdate();
@@ -234,7 +323,7 @@ class Controle {
         System.println("confirmado em " + ms + " ms");
         mostrar(_ultimo.equals("next") ? "OK >>" : "<< OK",
                 (ms / 1000.0).format("%.1f") + " s", Graphics.COLOR_GREEN);
-        vibrar(VIBRA_CURTA);
+        vibrar(SUAVE, CURTA_MS);
     }
 
     // O comando nem chegou ao ntfy.
@@ -248,7 +337,7 @@ class Controle {
             texto = "ERRO HTTP";                // ex.: 429 = limite do ntfy
         }
         mostrar(texto, "código " + codigo, Graphics.COLOR_RED);
-        vibrar(VIBRA_LONGA);
+        vibrar(SUAVE, LONGA_MS);
     }
 
     private function mostrar(texto as String, det as String,
@@ -258,34 +347,11 @@ class Controle {
         cor = c;
     }
 
-    // Chamado pela tela uma vez por segundo: a cada avisoMin minutos de
-    // apresentação dá AVISO_TOQUES vibrações curtas, uma por segundo.
-    function tique() as Void {
-        // A pergunta de saída e o ajuste se desfazem sozinhos se ninguém mexer.
-        var parado = System.getTimer() - _modoEm;
-        if (parado > 3000) {
-            saindo = false;
-        }
-        if (parado > 8000) {
-            ajustando = false;
-        }
-        var agora = marcos();
-        if (agora > _avisos) {
-            _avisos = agora;
-            _toques = AVISO_TOQUES;
-        }
-        avisando = (_toques > 0);
-        if (avisando) {
-            _toques -= 1;
-            vibrar(VIBRA_CURTA);
-        }
-    }
-
-    // Vibração suave. No Forerunner o relógio pode ignorar a intensidade
-    // pedida, então a suavidade vem principalmente da duração curta.
-    private function vibrar(ms as Number) as Void {
+    // No Forerunner o relógio pode ignorar a intensidade pedida, então a
+    // diferença entre suave e forte vem principalmente da duração.
+    private function vibrar(forca as Number, ms as Number) as Void {
         if (Attention has :vibrate) {
-            Attention.vibrate([new Attention.VibeProfile(VIBRA_FORCA, ms)]);
+            Attention.vibrate([new Attention.VibeProfile(forca, ms)]);
         }
     }
 }
