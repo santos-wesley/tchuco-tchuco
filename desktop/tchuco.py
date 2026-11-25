@@ -4,6 +4,9 @@
 Escuta um tópico do ntfy.sh e transforma cada mensagem em uma tecla:
     "next" -> seta direita        "prev" -> seta esquerda
 
+Depois de cada comando, publica uma confirmação no tópico "<tópico>-ack";
+é assim que o relógio sabe que existe um computador ouvindo.
+
 Uso:
     python tchuco.py SEU_TOPICO            (ou a variável TCHUCO_TOPICO)
     python tchuco.py SEU_TOPICO --dry-run  (só imprime, não aperta teclas)
@@ -13,6 +16,7 @@ import http.client
 import json
 import os
 import signal
+import threading
 import time
 import urllib.request
 
@@ -65,7 +69,17 @@ def ler_argumentos():
     return args
 
 
-def tratar(evento, apertar):
+def confirmar(topico, id_comando):
+    """Publica no tópico de confirmação o id do comando já executado."""
+    try:
+        pedido = urllib.request.Request(
+            f"{SERVIDOR}/{topico}-ack", data=id_comando.encode())
+        urllib.request.urlopen(pedido, timeout=10).close()
+    except (OSError, http.client.HTTPException) as erro:
+        log(f"confirmação não enviada: {erro}")
+
+
+def tratar(evento, apertar, topico):
     """Trata uma linha do stream: só "next" e "prev" viram tecla."""
     if evento.get("event") != "message":
         return  # "open" e "keepalive" não são comandos
@@ -74,6 +88,10 @@ def tratar(evento, apertar):
         tecla, nome = COMANDOS[comando]
         apertar(tecla)
         log(f"{comando} -> {nome}")
+        # A confirmação vai em outra thread para não atrasar o próximo
+        # comando; o relógio procura por este id no tópico "<tópico>-ack".
+        threading.Thread(target=confirmar, daemon=True,
+                         args=(topico, evento.get("id", ""))).start()
     else:
         log(f"mensagem ignorada: {comando[:40]!r}")
 
@@ -101,7 +119,7 @@ def main():
                     if evento.get("event") == "open":
                         log("conectado; aguardando comandos (Ctrl+C sai)")
                         espera = 1
-                    tratar(evento, apertar)
+                    tratar(evento, apertar, args.topico)
             log("o servidor encerrou a conexão")
         except (OSError, ValueError, http.client.HTTPException) as erro:
             # OSError: rede, timeout e erros HTTP.
