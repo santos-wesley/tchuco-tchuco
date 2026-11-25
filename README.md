@@ -34,19 +34,34 @@ app não abre telas do sistema (que aceitariam toque).
 | START (superior direito) | próximo slide (`next`) |
 | DOWN (inferior esquerdo, o da música) | slide anterior (`prev`) |
 | BACK (inferior direito) | mostra "BACK DE NOVO"; um segundo BACK em 3 s fecha o app |
-| UP (meio esquerdo), segurando | ajuste do aviso de tempo |
+| UP (meio esquerdo), segurando | abre os ajustes de tempo |
 | UP, toque curto | nada |
 
-No ajuste do aviso de tempo, UP e DOWN escolhem o intervalo (desligado, 1, 2,
-3, 5, 10, 15, 20 ou 30 minutos), START grava e BACK sai sem gravar. A escolha
-fica guardada no relógio.
+## Tempo: modo livre e modo cronometrado
+
+- **Livre:** um cronômetro branco que conta para cima a partir do primeiro
+  clique, sem nenhum aviso.
+- **Cronometrado:** você define o tempo total da apresentação e o relógio faz
+  a contagem regressiva a partir do primeiro clique. O número vai do verde ao
+  vermelho em sete tons conforme o tempo acaba. A cada intervalo escolhido
+  (quando faltam 15, 10, 5 minutos, por exemplo) o meio da tela acende por 3
+  segundos e o relógio dá três vibrações suaves. Quando o tempo acaba são
+  cinco vibrações fortes, e o número passa a mostrar em vermelho quanto tempo
+  passou do limite ("+00:12").
+
+Para ajustar, segure o UP. Primeiro aparece **tempo total**: UP aumenta, DOWN
+diminui e START grava; "LIVRE" (zero) escolhe o modo livre. Em seguida, no
+modo cronometrado, aparece **aviso a cada**, ajustado do mesmo jeito;
+"DESLIGADO" tira os avisos intermediários. Os valores vão de 1 em 1 minuto
+até 30, de 5 em 5 até 60 e de 15 em 15 até 180. BACK sai sem gravar o que
+está na tela. Os ajustes ficam guardados no relógio.
 
 ## A tela
 
 ![Telas do app no simulador](docs/telas.png)
 
-De cima para baixo: a faixa com o resultado do último envio, o cronômetro da
-apresentação (começa no primeiro clique) e o contador de slides.
+De cima para baixo: a faixa com o resultado do último envio, o tempo e o
+contador de slides.
 
 | Faixa | Significado |
 |---|---|
@@ -56,9 +71,12 @@ apresentação (começa no primeiro clique) e o contador de slides.
 | vermelha, "SEM PC" | o ntfy recebeu, mas nenhum computador respondeu |
 | vermelha, "SEM CELULAR" / "SEM INTERNET" / "ERRO HTTP" | o comando não saiu; em cima, o código do erro |
 
-Vibrações (todas curtas e suaves): uma de 50 ms quando o computador confirma,
-uma de 300 ms quando falha e três de 50 ms, uma por segundo, no aviso de
-tempo. No aviso o cronômetro também fica amarelo por 3 segundos.
+| Vibração | Quando |
+|---|---|
+| uma, suave e curta (50 ms) | o computador confirmou o comando |
+| uma, suave e mais longa (300 ms) | o envio falhou ou o computador não respondeu |
+| três suaves, uma por segundo | aviso de tempo |
+| cinco fortes (500 ms), uma por segundo | o tempo acabou |
 
 ## 1. O tópico (é a sua senha)
 
@@ -186,7 +204,6 @@ testado, menos o Bluetooth e o celular.
 
 - *Settings → Connection Type → BLE → Not Connected*: simula o celular
   desconectado (o app mostra "SEM CELULAR", código -104).
-- *Settings → Do Not Disturb*: liga e desliga o Não Perturbe.
 - *File → View HTTP Traffic*: mostra as requisições feitas pelo app.
 - Tecla **M** do teclado, com o simulador em foco: equivale a segurar o UP.
 
@@ -260,11 +277,16 @@ mesmo instante de antes. Parte dessa espera é do próprio ntfy.sh, que leva de
 ## Notificações
 
 Um app Connect IQ não consegue bloquear as notificações do relógio nem ligar
-o modo Não Perturbe; ele só consegue ler se o modo está ligado. Por isso, na
-tela inicial, o app mostra "notif. ligadas" enquanto o Não Perturbe estiver
-desligado. Para apresentar sem interrupções, ligue o Não Perturbe no menu de
-controles do relógio (segurando o botão LIGHT) ou desative as notificações
-inteligentes nas configurações.
+o modo Não Perturbe. O que o app faz é gravar uma "atividade" enquanto está
+aberto (por isso a permissão `Fit` no manifest): com uma atividade em
+andamento, o relógio passa a seguir a regra de notificações **durante a
+atividade**, que pode ser deixada como desligada nas configurações de
+notificações do relógio. Ao fechar o app a atividade é descartada, então nada
+vai para o Garmin Connect.
+
+Isso ainda não foi conferido num relógio de verdade. Se as notificações
+continuarem aparecendo, a saída é ligar o Não Perturbe no menu de controles
+(segurando o botão LIGHT) antes de apresentar.
 
 ## Roteiro de teste
 
@@ -306,8 +328,11 @@ Com o script rodando em `--dry-run`, abra o app no simulador (seção 3.4):
 - com o script fechado: depois de três consultas, faixa vermelha "SEM PC";
 - com *BLE → Not Connected*: faixa vermelha "SEM CELULAR";
 - clicar ou arrastar o mouse sobre a tela do relógio não faz nada;
-- BACK mostra "BACK DE NOVO"; outro BACK em 3 s fecha o app;
-- tecla M: abre o ajuste do aviso de tempo.
+- BACK mostra "BACK DE NOVO"; outro BACK em 3 s fecha o app, e o terminal
+  mostra `atividade descartada`;
+- tecla M: abre os ajustes. Escolha um tempo total curto, grave e aperte
+  START: o número começa verde, acende nos avisos, fica vermelho e, no fim,
+  passa a mostrar "+MM:SS".
 
 **4. Relógio de verdade**
 
@@ -320,8 +345,11 @@ Com o celular por perto, Bluetooth ligado e o Garmin Connect aberto:
 - com o celular em modo avião e Bluetooth ligado: uma mensagem de falha com o
   código do erro;
 - toques e deslizes na tela não fazem nada;
-- segurar o UP abre o ajuste do aviso de tempo;
-- com o Não Perturbe ligado, confira se o app continua vibrando;
+- segurar o UP abre os ajustes; num teste com 2 minutos de tempo total e
+  aviso a cada 1, sinta as três vibrações suaves e as cinco fortes do fim;
+- com "durante a atividade" desligado nas notificações do relógio, mande uma
+  mensagem para o celular com o app aberto: ela não deve aparecer;
+- depois de fechar o app, confira que nenhuma atividade foi salva;
 - deixe o app aberto pelo tempo de uma apresentação e confira se ele
   continua na tela.
 
@@ -364,9 +392,17 @@ Com o celular por perto, Bluetooth ligado e o Garmin Connect aberto:
 - **macOS:** exige a permissão de Acessibilidade para o terminal.
 - **O computador não pode entrar em suspensão**; o script não impede isso.
 - **Vibração.** Segundo a documentação da Garmin, nos Forerunner o app não
-  controla a intensidade da vibração. O app pede intensidade baixa (25%), mas
-  o que garante a suavidade é a duração curta.
-- **Notificações.** O app não consegue escondê-las; veja a seção Notificações.
+  controla a intensidade da vibração. O app pede 25% nas suaves e 100% nas
+  fortes, mas a diferença que o relógio garante é a duração (50 ms contra
+  500 ms). A mesma documentação diz que o Forerunner não aceita padrões de
+  vibração; por isso as vibrações dos avisos saem uma por segundo, cada uma
+  como um pedido separado.
+- **Notificações.** O app não consegue escondê-las diretamente; a gravação de
+  atividade é uma tentativa ainda não conferida no relógio (veja a seção
+  Notificações). Enquanto o app está aberto o relógio fica com uma atividade
+  em andamento, que é descartada ao sair.
+- **Avisos de tempo só com a tela do app aberta.** Eles são disparados pelo
+  redesenho de 1 segundo da tela.
 - **Toque.** No 955, deslizar o dedo para a direita chega ao app como o botão
   BACK. O app separa os dois casos (só o botão físico gera o evento de "tecla
   apertada"); isso funcionou no simulador e ainda precisa ser conferido no
