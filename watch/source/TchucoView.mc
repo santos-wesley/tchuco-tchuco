@@ -60,7 +60,10 @@ class TchucoView extends WatchUi.View {
         var tempo = tempoDecorrido();
         var fonte = Graphics.FONT_NUMBER_THAI_HOT;
         if (dc.getTextWidthInPixels(tempo, fonte) > largura - 20) {
-            fonte = Graphics.FONT_NUMBER_MEDIUM;    // a partir de 1 hora
+            fonte = Graphics.FONT_NUMBER_HOT;       // a partir de 1 hora
+        }
+        if (dc.getTextWidthInPixels(tempo, fonte) > largura - 20) {
+            fonte = Graphics.FONT_NUMBER_MEDIUM;    // a partir de 10 horas
         }
         dc.drawText(cx, altura * 53 / 100, fonte, tempo, centro);
 

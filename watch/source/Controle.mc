@@ -88,7 +88,7 @@ class Controle {
             } else {
                 status = "SEM INTERNET";
             }
-            detalhe = "codigo " + codigo;
+            detalhe = "código " + codigo;
             cor = Graphics.COLOR_RED;
             vibrar(1000);                       // vibração longa: falhou
         }
