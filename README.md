@@ -33,24 +33,28 @@ app não abre telas do sistema (que aceitariam toque).
 
 ### Menu inicial
 
-Ao abrir, o app mostra três opções; a de baixo da tela explica a que está
-destacada. UP e DOWN escolhem, START confirma e BACK fecha o app.
+Ao abrir, o app mostra quatro opções; a linha de baixo da tela explica a que
+está destacada. UP e DOWN escolhem, START confirma e BACK fecha o app.
 
 | Opção | O que faz |
 |---|---|
 | LIVRE | vai direto para o passador de slides, sem limite de tempo |
-| CRONÔMETRO | pergunta o tempo total e o intervalo do aviso e começa a apresentação com contagem regressiva |
+| CRONÔMETRO | pergunta o tempo total e abre a apresentação com a contagem regressiva já correndo |
+| AVISO: NÃO / N MIN | liga ou desliga os avisos de tempo e define o intervalo; vale para os dois modos |
 | LUZ: LIGADA / AUTO | START alterna entre manter a luz do visor sempre acesa e deixar o relógio decidir |
 
-O menu abre na última opção usada, e os tempos escolhidos ficam guardados no
+O menu abre no último modo usado, e todas as escolhas ficam guardadas no
 relógio.
 
-### Ajustes do cronômetro
+### Ajustes
 
-Duas telas, uma depois da outra: **tempo total** e **aviso a cada**. UP
-aumenta, DOWN diminui (o "+" e o "-" na tela ficam ao lado desses botões),
-START segue para a próxima e BACK volta. Os valores vão de 1 em 1 minuto até
-30, de 5 em 5 até 60 e de 15 em 15 até 180; no aviso, zero vale "SEM AVISO".
+- **Tempo total** (ao escolher CRONÔMETRO): UP aumenta e DOWN diminui (o "+"
+  e o "-" na tela ficam ao lado desses botões); START começa a apresentação.
+- **Avisos** (ao escolher AVISO): primeiro a pergunta NÃO ou SIM; em SIM,
+  aparece **aviso a cada**, ajustado do mesmo jeito, e START grava.
+
+Os minutos vão de 1 em 1 até 30, de 5 em 5 até 60 e de 15 em 15 até 180.
+BACK volta uma tela sem gravar.
 
 ### Apresentação
 
@@ -64,13 +68,16 @@ START segue para a próxima e BACK volta. Os valores vão de 1 em 1 minuto até
 A tela mostra o tempo, grande, e o contador de slides.
 
 - **Modo livre:** cronômetro branco que conta para cima a partir do primeiro
-  clique, sem avisos.
-- **Cronômetro:** contagem regressiva a partir do primeiro clique. O número
-  vai do verde ao vermelho em sete tons conforme o tempo acaba. A cada
-  intervalo escolhido (quando faltam 15, 10, 5 minutos, por exemplo) o meio
-  da tela acende por 3 segundos e o relógio dá três vibrações suaves. Quando
-  o tempo acaba são cinco vibrações fortes, e o número passa a mostrar em
-  vermelho quanto tempo passou do limite ("+00:12").
+  slide passado.
+- **Cronômetro:** contagem regressiva que começa assim que a apresentação
+  abre, sem precisar passar slide. O número vai do verde ao vermelho em sete
+  tons conforme o tempo acaba. Quando o tempo acaba são cinco vibrações
+  fortes, e o número passa a mostrar em vermelho quanto tempo passou do
+  limite ("+00:12").
+- **Avisos de tempo** (opcionais, nos dois modos): o meio da tela acende por
+  3 segundos e o relógio dá três vibrações suaves. No modo livre isso
+  acontece a cada intervalo escolhido; no cronômetro, quando faltam múltiplos
+  do intervalo (faltam 15, 10, 5 minutos, por exemplo).
 
 O resultado de cada comando aparece numa faixa branca com letra preta no topo
 (sempre a mesma cor, para não se confundir com as cores do tempo) e some
@@ -345,9 +352,12 @@ Com o script rodando em `--dry-run`, abra o app no simulador (seção 3.4):
 - com *BLE → Not Connected*: "SEM CELULAR";
 - clicar ou arrastar o mouse sobre a tela do relógio não faz nada;
 - BACK mostra "BACK DE NOVO"; outro BACK em 3 s volta para o menu;
-- no menu, CRONÔMETRO: escolha um tempo total curto e um aviso, e aperte START
-  na apresentação: o número começa verde, acende nos avisos, fica vermelho e,
-  no fim, passa a mostrar "+MM:SS";
+- no menu, AVISO: escolha SIM e um intervalo curto; depois CRONÔMETRO, com um
+  tempo total curto: a contagem começa sozinha, o número começa verde, acende
+  nos avisos, fica vermelho e, no fim, passa a mostrar "+MM:SS";
+- com AVISO em NÃO, o cronômetro só dá o alarme do fim; no modo LIVRE com
+  AVISO ligado, o meio da tela acende a cada intervalo depois do primeiro
+  START;
 - no menu, BACK fecha o app e o terminal mostra `atividade descartada`.
 
 **4. Relógio de verdade**
@@ -363,8 +373,8 @@ Com o celular por perto, Bluetooth ligado e o Garmin Connect aberto:
   código do erro;
 - toques e deslizes na tela não fazem nada;
 - com LUZ: LIGADA, a luz do visor fica acesa o tempo todo;
-- no cronômetro, com 2 minutos de tempo total e aviso a cada 1, sinta as três
-  vibrações suaves e as cinco fortes do fim;
+- com AVISO a cada 1 minuto e CRONÔMETRO de 2 minutos, a contagem começa
+  sozinha; sinta as três vibrações suaves e as cinco fortes do fim;
 - com "durante a atividade" desligado nas notificações do relógio, mande uma
   mensagem para o celular com o app aberto: ela não deve aparecer;
 - depois de fechar o app, confira que nenhuma atividade foi salva;
