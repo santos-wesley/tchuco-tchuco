@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!-- Tchuco Tchuco: passador de slides para o Forerunner 955 / 955 Solar. -->
 <iq:manifest version="3" xmlns:iq="http://www.garmin.com/xml/connectiq">
-    <iq:application id="d2c33804-22f1-4c0f-9584-66d314078c3d" type="watch-app"
+    <iq:application id="d2c3380422f14c0f958466d314078c3d" type="watch-app"
                     name="@Strings.AppName" entry="TchucoApp"
                     launcherIcon="@Drawables.LauncherIcon"
                     minApiLevel="3.3.0">
