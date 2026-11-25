@@ -1,0 +1,5 @@
+<drawables xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/resources.xsd">
+    <!-- Ícone 40x40 (tamanho do fr955): tela de apresentação com ">>" de avançar.
+         Só usa cores da paleta de 64 cores do visor, por isso sem dithering. -->
+    <bitmap id="LauncherIcon" filename="launcher_icon.png" dithering="none"/>
+</drawables>
