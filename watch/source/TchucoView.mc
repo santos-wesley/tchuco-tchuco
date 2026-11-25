@@ -52,60 +52,77 @@ class TchucoView extends WatchUi.View {
         }
     }
 
-    // Menu inicial: três opções, a destacada em tarja branca, e embaixo uma
-    // linha explicando a opção destacada. UP/DOWN escolhem, START confirma.
-    private function desenharMenu(dc as Graphics.Dc) as Void {
-        var w = dc.getWidth();
-        var h = dc.getHeight();
-        var cx = w / 2;
-        var centro = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
-        var rotulos = ["LIVRE", "CRONÔMETRO",
-                _controle.luz ? "LUZ: LIGADA" : "LUZ: AUTO"];
-        var ajudas = ["só passar os slides",
-                _controle.duracaoMin + " min" + ((_controle.avisoMin > 0)
-                        ? ", aviso " + _controle.avisoMin : ", sem aviso"),
-                "START troca"];
-
-        dc.drawText(cx, h * 11 / 100, Graphics.FONT_XTINY, "TCHUCO TCHUCO", centro);
-        for (var i = 0; i < rotulos.size(); i++) {
-            var y = h * (31 + 19 * i) / 100;
-            if (i == _controle.item) {
-                dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_WHITE);
-                dc.fillRoundedRectangle(w * 10 / 100, y - h * 8 / 100,
-                        w * 80 / 100, h * 16 / 100, h * 4 / 100);
-                dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-            } else {
-                dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-            }
-            dc.drawText(cx, y, Graphics.FONT_SMALL, rotulos[i], centro);
+    // Uma opção de lista: a destacada vai em tarja branca com letra preta.
+    private function desenharOpcao(dc as Graphics.Dc, y as Number,
+            texto as String, destacada as Boolean) as Void {
+        var cx = dc.getWidth() / 2;
+        var alt = dc.getHeight() * 15 / 100;
+        if (destacada) {
+            var larg = dc.getTextWidthInPixels(texto, Graphics.FONT_SMALL) + 28;
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_WHITE);
+            dc.fillRoundedRectangle(cx - larg / 2, y - alt / 2, larg, alt, 10);
+            dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+        } else {
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         }
+        dc.drawText(cx, y, Graphics.FONT_SMALL, texto,
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h * 87 / 100, Graphics.FONT_XTINY,
-                ajudas[_controle.item], centro);
     }
 
-    // Ajustes do cronômetro: o valor grande no centro, "+" ao lado do botão
-    // UP e "-" ao lado do DOWN. START segue, BACK volta.
+    // Menu inicial: quatro opções e, embaixo, uma linha explicando a que está
+    // destacada. UP/DOWN escolhem, START confirma.
+    private function desenharMenu(dc as Graphics.Dc) as Void {
+        var h = dc.getHeight();
+        var aviso = _controle.avisoLigado;
+        var rotulos = ["LIVRE", "CRONÔMETRO",
+                aviso ? "AVISO: " + _controle.avisoMin + " MIN" : "AVISO: NÃO",
+                _controle.luz ? "LUZ: LIGADA" : "LUZ: AUTO"];
+        var ajudas = [
+                aviso ? "aviso a cada " + _controle.avisoMin + " min"
+                        : "sem aviso de tempo",
+                _controle.duracaoMin + " min" + (aviso
+                        ? ", aviso " + _controle.avisoMin : ", sem aviso"),
+                "vale nos dois modos",
+                "START troca"];
+        for (var i = 0; i < rotulos.size(); i++) {
+            desenharOpcao(dc, h * (20 + 17 * i) / 100, rotulos[i],
+                    i == _controle.item);
+        }
+        dc.drawText(dc.getWidth() / 2, h * 87 / 100, Graphics.FONT_XTINY,
+                ajudas[_controle.item],
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+    }
+
+    // Ajustes. Minutos: o valor grande no centro, "+" ao lado do botão UP e
+    // "-" ao lado do DOWN. Avisos: escolha entre NÃO e SIM. START segue,
+    // BACK volta.
     private function desenharAjuste(dc as Graphics.Dc) as Void {
         var w = dc.getWidth();
         var h = dc.getHeight();
         var cx = w / 2;
         var centro = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
-        var tempoTotal = (_controle.tela == Tela.TEMPO);
-
-        dc.drawText(cx, h * 21 / 100, Graphics.FONT_SMALL,
-                tempoTotal ? "TEMPO TOTAL" : "AVISO A CADA", centro);
-        if (_controle.opcao > 0) {
+        var titulo = "TEMPO TOTAL";
+        var ajuda = "START começa";
+        if (_controle.tela == Tela.AVISOS) {
+            titulo = "AVISOS";
+            ajuda = "START confirma";
+        } else if (_controle.tela == Tela.AVISO) {
+            titulo = "AVISO A CADA";
+            ajuda = "START grava";
+        }
+        dc.drawText(cx, h * 21 / 100, Graphics.FONT_SMALL, titulo, centro);
+        if (_controle.tela == Tela.AVISOS) {
+            desenharOpcao(dc, h * 42 / 100, "NÃO", _controle.opcao == 0);
+            desenharOpcao(dc, h * 62 / 100, "SIM", _controle.opcao == 1);
+        } else {
             dc.drawText(cx, h * 48 / 100, Graphics.FONT_NUMBER_HOT,
                     _controle.opcao.format("%d"), centro);
             dc.drawText(cx, h * 71 / 100, Graphics.FONT_SMALL, "MIN", centro);
-        } else {
-            dc.drawText(cx, h * 52 / 100, Graphics.FONT_MEDIUM, "SEM AVISO", centro);
+            dc.drawText(w * 11 / 100, h * 48 / 100, Graphics.FONT_MEDIUM, "+", centro);
+            dc.drawText(w * 17 / 100, h * 71 / 100, Graphics.FONT_MEDIUM, "-", centro);
         }
-        dc.drawText(w * 11 / 100, h * 48 / 100, Graphics.FONT_MEDIUM, "+", centro);
-        dc.drawText(w * 17 / 100, h * 71 / 100, Graphics.FONT_MEDIUM, "-", centro);
-        dc.drawText(cx, h * 88 / 100, Graphics.FONT_XTINY,
-                tempoTotal ? "START continua" : "START começa", centro);
+        dc.drawText(cx, h * 88 / 100, Graphics.FONT_XTINY, ajuda, centro);
     }
 
     // Apresentação: o tempo no centro e o contador de slides embaixo. O aviso
@@ -133,9 +150,11 @@ class TchucoView extends WatchUi.View {
             dc.drawText(cx, h * 20 / 100, Graphics.FONT_SMALL, status, centro);
         }
 
-        // Modo livre: cronômetro branco, contando para cima.
-        // Cronometrado: contagem regressiva que vai do verde ao vermelho;
-        // depois do fim, mostra em vermelho quanto passou ("+MM:SS").
+        // Modo livre: cronômetro branco, contando para cima a partir do
+        // primeiro slide passado.
+        // Cronometrado: contagem regressiva, que já começa ao abrir esta tela
+        // e vai do verde ao vermelho; depois do fim, mostra em vermelho
+        // quanto passou ("+MM:SS").
         var seg = _controle.decorrido();
         var corTempo = Graphics.COLOR_WHITE as Graphics.ColorType;
         var sinal = "";

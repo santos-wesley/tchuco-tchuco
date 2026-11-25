@@ -10,8 +10,9 @@ import Toybox.WatchUi;
 module Tela {
     const MENU as Number = 0;       // menu inicial
     const TEMPO as Number = 1;      // cronômetro: tempo total
-    const AVISO as Number = 2;      // cronômetro: aviso a cada
-    const SLIDES as Number = 3;     // apresentação (passador de slides)
+    const AVISOS as Number = 2;     // avisos de tempo: sim ou não
+    const AVISO as Number = 3;      // avisos de tempo: a cada quantos minutos
+    const SLIDES as Number = 4;     // apresentação (passador de slides)
 }
 
 // Estado do app: em que tela está, ajustes, tempo da apresentação e envio
@@ -40,11 +41,13 @@ class Controle {
     private const ERRO_MS as Number = 10000;
 
     var tela as Number = Tela.MENU;
-    var item as Number = 0;                     // menu: 0 livre, 1 cronômetro, 2 luz
-    var opcao as Number = 0;                    // minutos mostrados nos ajustes
+    var item as Number = 0;                     // menu: 0 livre, 1 cronômetro,
+                                                // 2 aviso, 3 luz
+    var opcao as Number = 0;                    // valor mostrado nos ajustes
     var cronometrado as Boolean = false;        // modo da apresentação atual
     var duracaoMin as Number = 20;              // cronômetro: tempo total
-    var avisoMin as Number = 5;                 // cronômetro: aviso a cada (0 = sem)
+    var avisoLigado as Boolean = false;         // avisos de tempo (nos dois modos)
+    var avisoMin as Number = 5;                 // aviso a cada N minutos
     var luz as Boolean = true;                  // manter a luz do visor acesa
     var status as String = "";                  // aviso do topo: último envio
     var detalhe as String = "";                 // tempo da confirmação ou erro
@@ -66,7 +69,7 @@ class Controle {
     private var _pulsos as Number = 0;          // vibrações de "OK" que faltam
     private var _statusAte as Number = 0;       // até quando o aviso do topo fica
     private var _saidaEm as Number = 0;         // quando o 1º BACK foi apertado
-    private var _proxAviso as Number = 0;       // próximo aviso: segundos que faltam
+    private var _proxAviso as Number = 0;       // próximo aviso: segundos decorridos
     private var _fimAvisado as Boolean = false; // o fim do tempo já foi avisado
     private var _suaves as Number = 0;          // vibrações suaves ainda a dar
     private var _fortes as Number = 0;          // vibrações fortes ainda a dar
@@ -78,11 +81,20 @@ class Controle {
             duracaoMin = 20;
         }
         avisoMin = lerNumero("avisoMin", 5);
-        item = lerNumero("modo", 0);            // o menu abre no último modo usado
-        var luzSalva = Application.Storage.getValue("luz");
-        if (luzSalva instanceof Boolean) {
-            luz = luzSalva;
+        if (avisoMin < 1) {
+            avisoMin = 5;
         }
+        item = lerNumero("modo", 0);            // o menu abre no último modo usado
+        avisoLigado = lerLogico("avisoLigado", false);
+        luz = lerLogico("luz", true);
+    }
+
+    private function lerLogico(chave as String, padrao as Boolean) as Boolean {
+        var valor = Application.Storage.getValue(chave);
+        if (valor instanceof Boolean) {
+            return valor;
+        }
+        return padrao;
     }
 
     private function lerNumero(chave as String, padrao as Number) as Number {
@@ -97,7 +109,7 @@ class Controle {
 
     // UP e DOWN no menu: opção anterior (-1) ou seguinte (+1).
     function moverMenu(passo as Number) as Void {
-        item = (item + passo + 3) % 3;
+        item = (item + passo + 4) % 4;
         WatchUi.requestUpdate();
     }
 
@@ -106,8 +118,11 @@ class Controle {
         if (item == 0) {
             comecar(false);                     // direto para o passador livre
         } else if (item == 1) {
-            opcao = duracaoMin;                 // configura o cronômetro
+            opcao = duracaoMin;                 // cronômetro: pede o tempo total
             tela = Tela.TEMPO;
+        } else if (item == 2) {
+            opcao = avisoLigado ? 1 : 0;        // avisos: sim ou não
+            tela = Tela.AVISOS;
         } else {
             luz = !luz;
             Application.Storage.setValue("luz", luz);
@@ -115,36 +130,46 @@ class Controle {
         WatchUi.requestUpdate();
     }
 
-    // UP (+1) e DOWN (-1) nos ajustes: de 1 em 1 minuto até 30, de 5 em 5
-    // até 60 e de 15 em 15 até 180. No aviso, zero vale "sem aviso".
+    // UP (+1) e DOWN (-1) nos ajustes. Na pergunta dos avisos alternam entre
+    // NÃO e SIM; nos minutos vão de 1 em 1 até 30, de 5 em 5 até 60 e de 15
+    // em 15 até 180.
     function mudarOpcao(sentido as Number) as Void {
-        var passo = 15;
-        if (opcao < 30 || (opcao == 30 && sentido < 0)) {
-            passo = 1;
-        } else if (opcao < 60 || (opcao == 60 && sentido < 0)) {
-            passo = 5;
-        }
-        var minimo = (tela == Tela.TEMPO) ? 1 : 0;
-        opcao += sentido * passo;
-        if (opcao < minimo) {
-            opcao = minimo;
-        } else if (opcao > MAX_MIN) {
-            opcao = MAX_MIN;
+        if (tela == Tela.AVISOS) {
+            opcao = 1 - opcao;
+        } else {
+            var passo = 15;
+            if (opcao < 30 || (opcao == 30 && sentido < 0)) {
+                passo = 1;
+            } else if (opcao < 60 || (opcao == 60 && sentido < 0)) {
+                passo = 5;
+            }
+            opcao += sentido * passo;
+            if (opcao < 1) {
+                opcao = 1;
+            } else if (opcao > MAX_MIN) {
+                opcao = MAX_MIN;
+            }
         }
         WatchUi.requestUpdate();
     }
 
-    // START nos ajustes: grava e segue (tempo total -> aviso -> apresentação).
+    // START nos ajustes: grava o que está na tela e segue.
     function avancarAjuste() as Void {
         if (tela == Tela.TEMPO) {
-            duracaoMin = opcao;
+            duracaoMin = opcao;                 // cronômetro: já começa a contar
             Application.Storage.setValue("duracaoMin", opcao);
-            opcao = avisoMin;
+            comecar(true);
+        } else if (tela == Tela.AVISOS && opcao == 1) {
+            opcao = avisoMin;                   // SIM: pergunta de quanto em quanto
             tela = Tela.AVISO;
         } else {
-            avisoMin = opcao;
-            Application.Storage.setValue("avisoMin", opcao);
-            comecar(true);
+            avisoLigado = (tela == Tela.AVISO);
+            if (avisoLigado) {
+                avisoMin = opcao;
+                Application.Storage.setValue("avisoMin", opcao);
+            }
+            Application.Storage.setValue("avisoLigado", avisoLigado);
+            tela = Tela.MENU;
         }
         WatchUi.requestUpdate();
     }
@@ -152,8 +177,8 @@ class Controle {
     // BACK nos ajustes: volta uma tela, sem gravar o que está na tela.
     function voltarAjuste() as Void {
         if (tela == Tela.AVISO) {
-            opcao = duracaoMin;
-            tela = Tela.TEMPO;
+            opcao = 1;
+            tela = Tela.AVISOS;
         } else {
             tela = Tela.MENU;
         }
@@ -165,7 +190,6 @@ class Controle {
         cronometrado = comTempo;
         item = comTempo ? 1 : 0;
         Application.Storage.setValue("modo", item);
-        inicio = null;
         slide = 1;
         status = "";
         detalhe = "";
@@ -177,9 +201,33 @@ class Controle {
         _fila = null;
         _suaves = 0;
         _fortes = 0;
-        _proxAviso = 0;
-        _fimAvisado = false;
+        // No cronômetro o tempo corre desde já; no modo livre, a partir do
+        // primeiro slide passado.
+        inicio = null;
+        if (comTempo) {
+            iniciarTempo();
+        }
         tela = Tela.SLIDES;
+    }
+
+    // Marca o início do tempo e programa o primeiro aviso. No modo livre os
+    // avisos saem a cada avisoMin minutos; no cronômetro, quando faltam
+    // múltiplos de avisoMin (por exemplo: faltam 10, faltam 5).
+    private function iniciarTempo() as Void {
+        inicio = System.getTimer();
+        _fimAvisado = false;
+        _proxAviso = 0;
+        if (avisoLigado) {
+            var passo = avisoMin * 60;
+            _proxAviso = passo;
+            if (cronometrado) {
+                var total = duracaoMin * 60;
+                _proxAviso = total - ((total - 1) / passo) * passo;
+                if (_proxAviso >= total) {
+                    _proxAviso = 0;             // o tempo é menor que o intervalo
+                }
+            }
+        }
     }
 
     // BACK na apresentação: o primeiro só pergunta; um segundo BACK em 3 s
@@ -224,14 +272,18 @@ class Controle {
         if (saindo && System.getTimer() - _saidaEm > 3000) {
             saindo = false;
         }
-        // Cronômetro: avisos durante a contagem e alarme no fim.
-        if (tela == Tela.SLIDES && cronometrado && inicio != null) {
-            var falta = duracaoMin * 60 - decorrido();
-            if (!_fimAvisado && falta <= 0) {
+        // Avisos de tempo (nos dois modos) e, no cronômetro, o alarme do fim.
+        if (tela == Tela.SLIDES && inicio != null) {
+            var seg = decorrido();
+            var total = duracaoMin * 60;
+            if (cronometrado && !_fimAvisado && seg >= total) {
                 _fimAvisado = true;
                 _fortes = FIM_TOQUES;           // o tempo acabou
-            } else if (_proxAviso > 0 && falta <= _proxAviso) {
-                _proxAviso -= avisoMin * 60;
+            } else if (_proxAviso > 0 && seg >= _proxAviso) {
+                _proxAviso += avisoMin * 60;
+                if (cronometrado && _proxAviso >= total) {
+                    _proxAviso = 0;             // o próximo já seria o fim
+                }
                 _suaves = AVISO_TOQUES;
             }
         }
@@ -258,13 +310,7 @@ class Controle {
     function comando(cmd as String) as Void {
         saindo = false;                         // desiste de sair
         if (inicio == null) {
-            inicio = System.getTimer();         // o tempo parte no 1º clique
-            // Os avisos caem quando faltam múltiplos de avisoMin
-            // (por exemplo: faltam 10, faltam 5).
-            var passo = avisoMin * 60;
-            if (cronometrado && passo > 0) {
-                _proxAviso = ((duracaoMin * 60 - 1) / passo) * passo;
-            }
+            iniciarTempo();                     // modo livre: parte no 1º clique
         }
         if (_noAr) {
             _fila = cmd;                        // fila de 1: vale o último clique

@@ -5,7 +5,7 @@ import Toybox.WatchUi;
 // Tudo é feito só pelos botões físicos; a tela sensível ao toque é ignorada.
 //
 //   Menu inicial   UP/DOWN escolhem, START confirma, BACK fecha o app
-//   Ajustes        UP aumenta, DOWN diminui, START segue, BACK volta
+//   Ajustes        UP e DOWN mudam o valor, START segue, BACK volta
 //   Apresentação   START = próximo slide, DOWN = slide anterior,
 //                  BACK duas vezes = volta para o menu
 //
