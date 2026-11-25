@@ -24,57 +24,71 @@ app de celular, banco de dados nem login.
 | `watch/` | App do relógio (Connect IQ, Monkey C, alvo `fr955`) |
 | `desktop/` | Script do computador (Python 3, um arquivo, Windows e macOS) |
 
-## Botões do relógio
+## Como usar no relógio
 
 O app é operado só pelos botões. Toques e deslizes na tela são ignorados, e o
 app não abre telas do sistema (que aceitariam toque).
+
+![Telas do app no simulador](docs/telas.png)
+
+### Menu inicial
+
+Ao abrir, o app mostra três opções; a de baixo da tela explica a que está
+destacada. UP e DOWN escolhem, START confirma e BACK fecha o app.
+
+| Opção | O que faz |
+|---|---|
+| LIVRE | vai direto para o passador de slides, sem limite de tempo |
+| CRONÔMETRO | pergunta o tempo total e o intervalo do aviso e começa a apresentação com contagem regressiva |
+| LUZ: LIGADA / AUTO | START alterna entre manter a luz do visor sempre acesa e deixar o relógio decidir |
+
+O menu abre na última opção usada, e os tempos escolhidos ficam guardados no
+relógio.
+
+### Ajustes do cronômetro
+
+Duas telas, uma depois da outra: **tempo total** e **aviso a cada**. UP
+aumenta, DOWN diminui (o "+" e o "-" na tela ficam ao lado desses botões),
+START segue para a próxima e BACK volta. Os valores vão de 1 em 1 minuto até
+30, de 5 em 5 até 60 e de 15 em 15 até 180; no aviso, zero vale "SEM AVISO".
+
+### Apresentação
 
 | Botão | Ação |
 |---|---|
 | START (superior direito) | próximo slide (`next`) |
 | DOWN (inferior esquerdo, o da música) | slide anterior (`prev`) |
-| BACK (inferior direito) | mostra "BACK DE NOVO"; um segundo BACK em 3 s fecha o app |
-| UP (meio esquerdo), segurando | abre os ajustes de tempo |
-| UP, toque curto | nada |
+| BACK (inferior direito) | mostra "BACK DE NOVO"; um segundo BACK em 3 s volta para o menu |
+| UP (meio esquerdo) | nada |
 
-## Tempo: modo livre e modo cronometrado
+A tela mostra o tempo, grande, e o contador de slides.
 
-- **Livre:** um cronômetro branco que conta para cima a partir do primeiro
-  clique, sem nenhum aviso.
-- **Cronometrado:** você define o tempo total da apresentação e o relógio faz
-  a contagem regressiva a partir do primeiro clique. O número vai do verde ao
-  vermelho em sete tons conforme o tempo acaba. A cada intervalo escolhido
-  (quando faltam 15, 10, 5 minutos, por exemplo) o meio da tela acende por 3
-  segundos e o relógio dá três vibrações suaves. Quando o tempo acaba são
-  cinco vibrações fortes, e o número passa a mostrar em vermelho quanto tempo
-  passou do limite ("+00:12").
+- **Modo livre:** cronômetro branco que conta para cima a partir do primeiro
+  clique, sem avisos.
+- **Cronômetro:** contagem regressiva a partir do primeiro clique. O número
+  vai do verde ao vermelho em sete tons conforme o tempo acaba. A cada
+  intervalo escolhido (quando faltam 15, 10, 5 minutos, por exemplo) o meio
+  da tela acende por 3 segundos e o relógio dá três vibrações suaves. Quando
+  o tempo acaba são cinco vibrações fortes, e o número passa a mostrar em
+  vermelho quanto tempo passou do limite ("+00:12").
 
-Para ajustar, segure o UP. Primeiro aparece **tempo total**: UP aumenta, DOWN
-diminui e START grava; "LIVRE" (zero) escolhe o modo livre. Em seguida, no
-modo cronometrado, aparece **aviso a cada**, ajustado do mesmo jeito;
-"DESLIGADO" tira os avisos intermediários. Os valores vão de 1 em 1 minuto
-até 30, de 5 em 5 até 60 e de 15 em 15 até 180. BACK sai sem gravar o que
-está na tela. Os ajustes ficam guardados no relógio.
+O resultado de cada comando aparece numa faixa branca com letra preta no topo
+(sempre a mesma cor, para não se confundir com as cores do tempo) e some
+sozinho: 3 segundos depois de um "OK" e 10 segundos depois de uma falha.
 
-## A tela
-
-![Telas do app no simulador](docs/telas.png)
-
-De cima para baixo: a faixa com o resultado do último envio, o tempo e o
-contador de slides.
-
-| Faixa | Significado |
+| Aviso | Significado |
 |---|---|
-| amarela, "ENVIANDO" | o comando está indo para o ntfy |
-| amarela, "CONFIRMANDO" | o ntfy recebeu; esperando o computador responder |
-| verde, "OK" | o computador executou; em cima, quanto tempo levou |
-| vermelha, "SEM PC" | o ntfy recebeu, mas nenhum computador respondeu |
-| vermelha, "SEM CELULAR" / "SEM INTERNET" / "ERRO HTTP" | o comando não saiu; em cima, o código do erro |
+| "ENVIANDO" | o comando está indo para o ntfy |
+| "CONFIRMANDO" | o ntfy recebeu; esperando o computador responder |
+| "OK >>" / "<< OK" | o computador executou; em cima, quanto tempo levou |
+| "OK x2" | dois (ou mais) toques seguidos foram executados |
+| "SEM PC" | o ntfy recebeu, mas nenhum computador respondeu |
+| "SEM CELULAR" / "SEM INTERNET" / "ERRO HTTP" | o comando não saiu; em cima, o código do erro |
 
 | Vibração | Quando |
 |---|---|
-| uma, suave e curta (50 ms) | o computador confirmou o comando |
-| uma, suave e mais longa (300 ms) | o envio falhou ou o computador não respondeu |
+| uma suave e curta (50 ms) por comando | o computador confirmou; dois toques seguidos dão duas |
+| uma suave e mais longa (300 ms) | o envio falhou ou o computador não respondeu |
 | três suaves, uma por segundo | aviso de tempo |
 | cinco fortes (500 ms), uma por segundo | o tempo acabou |
 
@@ -205,7 +219,6 @@ testado, menos o Bluetooth e o celular.
 - *Settings → Connection Type → BLE → Not Connected*: simula o celular
   desconectado (o app mostra "SEM CELULAR", código -104).
 - *File → View HTTP Traffic*: mostra as requisições feitas pelo app.
-- Tecla **M** do teclado, com o simulador em foco: equivale a segurar o UP.
 
 ### 3.5 Copiar para o relógio
 
@@ -321,32 +334,37 @@ repita os comandos `curl`: o slide deve avançar e voltar.
 
 Com o script rodando em `--dry-run`, abra o app no simulador (seção 3.4):
 
+- no menu, UP e DOWN mudam a opção destacada; START em LIVRE abre a
+  apresentação com o cronômetro em 00:00;
 - START: o terminal do `monkeydo` mostra `envio de next: 200` e depois
-  `confirmado em ... ms`; o script imprime `next -> seta direita`; a faixa
-  passa por amarelo e fica verde; o contador sobe;
+  `confirmado em ... ms (1)`; o script imprime `next -> seta direita`; a faixa
+  branca mostra "ENVIANDO", "CONFIRMANDO" e "OK >>", e some em 3 segundos;
+- dois START seguidos: `confirmado em ... ms (2)` e "OK x2";
 - DOWN: `prev`, e o contador desce; UP não faz nada;
-- com o script fechado: depois de três consultas, faixa vermelha "SEM PC";
-- com *BLE → Not Connected*: faixa vermelha "SEM CELULAR";
+- com o script fechado: depois de três consultas, "SEM PC";
+- com *BLE → Not Connected*: "SEM CELULAR";
 - clicar ou arrastar o mouse sobre a tela do relógio não faz nada;
-- BACK mostra "BACK DE NOVO"; outro BACK em 3 s fecha o app, e o terminal
-  mostra `atividade descartada`;
-- tecla M: abre os ajustes. Escolha um tempo total curto, grave e aperte
-  START: o número começa verde, acende nos avisos, fica vermelho e, no fim,
-  passa a mostrar "+MM:SS".
+- BACK mostra "BACK DE NOVO"; outro BACK em 3 s volta para o menu;
+- no menu, CRONÔMETRO: escolha um tempo total curto e um aviso, e aperte START
+  na apresentação: o número começa verde, acende nos avisos, fica vermelho e,
+  no fim, passa a mostrar "+MM:SS";
+- no menu, BACK fecha o app e o terminal mostra `atividade descartada`.
 
 **4. Relógio de verdade**
 
 Com o celular por perto, Bluetooth ligado e o Garmin Connect aberto:
 
-- START avança e DOWN volta, com uma vibração curta quando o computador
-  confirma; anote o tempo que aparece em cima do "OK";
+- no modo livre, START avança e DOWN volta, com uma vibração curta quando o
+  computador confirma; anote o tempo que aparece em cima do "OK";
+- dois toques seguidos: duas vibrações e "OK x2";
 - com o script fechado: "SEM PC" e vibração mais longa;
 - com o Bluetooth do celular desligado: "SEM CELULAR";
 - com o celular em modo avião e Bluetooth ligado: uma mensagem de falha com o
   código do erro;
 - toques e deslizes na tela não fazem nada;
-- segurar o UP abre os ajustes; num teste com 2 minutos de tempo total e
-  aviso a cada 1, sinta as três vibrações suaves e as cinco fortes do fim;
+- com LUZ: LIGADA, a luz do visor fica acesa o tempo todo;
+- no cronômetro, com 2 minutos de tempo total e aviso a cada 1, sinta as três
+  vibrações suaves e as cinco fortes do fim;
 - com "durante a atividade" desligado nas notificações do relógio, mande uma
   mensagem para o celular com o app aberto: ela não deve aparecer;
 - depois de fechar o app, confira que nenhuma atividade foi salva;
@@ -403,6 +421,10 @@ Com o celular por perto, Bluetooth ligado e o Garmin Connect aberto:
   em andamento, que é descartada ao sair.
 - **Avisos de tempo só com a tela do app aberta.** Eles são disparados pelo
   redesenho de 1 segundo da tela.
+- **Luz sempre acesa gasta bateria.** Com LUZ: LIGADA o app renova a luz do
+  visor a cada segundo; em LUZ: AUTO vale a configuração do relógio. A
+  documentação da Garmin diz que a luz sempre respeita as configurações do
+  aparelho, então falta conferir no relógio se ela fica mesmo acesa.
 - **Toque.** No 955, deslizar o dedo para a direita chega ao app como o botão
   BACK. O app separa os dois casos (só o botão físico gera o evento de "tecla
   apertada"); isso funcionou no simulador e ainda precisa ser conferido no
