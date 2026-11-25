@@ -28,8 +28,8 @@ app de celular, banco de dados nem login.
 | Botão | Ação |
 |---|---|
 | START (superior direito) | próximo slide (`next`) |
-| DOWN (inferior esquerdo) | próximo slide (`next`) |
-| UP (meio esquerdo) | slide anterior (`prev`) |
+| DOWN (inferior esquerdo, o da música) | slide anterior (`prev`) |
+| UP (meio esquerdo) | sem função |
 | BACK (inferior direito) | pergunta "Sair?" antes de fechar o app |
 | Toques e deslizes na tela | ignorados |
 
@@ -239,9 +239,10 @@ repita os comandos `curl`: o slide deve avançar e voltar.
 
 Com o script rodando em `--dry-run`, abra o app no simulador (seção 3.4):
 
-- START e DOWN: o terminal do `monkeydo` mostra `envio de next: 200`, o script
+- START: o terminal do `monkeydo` mostra `envio de next: 200`, o script
   imprime `next -> seta direita`, a faixa fica verde e o contador sobe;
-- UP: `prev`, e o contador desce;
+- DOWN: `prev`, e o contador desce;
+- UP não faz nada;
 - o cronômetro começa no primeiro clique;
 - clicar ou arrastar o mouse sobre a tela do relógio não faz nada;
 - BACK pergunta "Sair?"; *Cancel* volta ao app e *Confirm* fecha;
@@ -252,7 +253,7 @@ Com o script rodando em `--dry-run`, abra o app no simulador (seção 3.4):
 
 Com o celular por perto, Bluetooth ligado e o Garmin Connect aberto:
 
-- START, DOWN e UP passam os slides, com vibração curta;
+- START avança e DOWN volta, com vibração curta;
 - com o Bluetooth do celular desligado: vibração longa e "SEM CELULAR";
 - com o celular em modo avião e Bluetooth ligado: vibração longa e uma
   mensagem de falha com o código do erro;

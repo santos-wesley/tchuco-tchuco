@@ -2,7 +2,8 @@ import Toybox.Lang;
 import Toybox.System;
 import Toybox.WatchUi;
 
-// Botões físicos: START e DOWN = próximo, UP = anterior, BACK = sair.
+// Botões físicos: START = próximo, DOWN = anterior, BACK = sair.
+// O UP fica sem função.
 //
 // Usa InputDelegate (e não BehaviorDelegate) de propósito: no BehaviorDelegate
 // um toque na tela vira onSelect e um deslizar vira onNextPage/onPreviousPage,
@@ -27,10 +28,10 @@ class TchucoDelegate extends WatchUi.InputDelegate {
 
     function onKey(evento as WatchUi.KeyEvent) as Boolean {
         var tecla = evento.getKey();
-        if (tecla == WatchUi.KEY_ENTER || tecla == WatchUi.KEY_DOWN) {
-            _controle.comando("next");
-        } else if (tecla == WatchUi.KEY_UP) {
-            _controle.comando("prev");
+        if (tecla == WatchUi.KEY_ENTER) {
+            _controle.comando("next");      // START: avança
+        } else if (tecla == WatchUi.KEY_DOWN) {
+            _controle.comando("prev");      // DOWN: volta
         } else if (tecla == WatchUi.KEY_ESC) {
             // No 955, deslizar o dedo para a direita também chega aqui como BACK.
             // Vale como BACK de verdade se o botão foi apertado agora há pouco
