@@ -1,14 +1,21 @@
 import Toybox.Application;
 import Toybox.Attention;
 import Toybox.Communications;
-import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.System;
 import Toybox.Timer;
 import Toybox.WatchUi;
 
-// Estado da apresentação: envio dos comandos ("next"/"prev") para o ntfy,
-// tempo (modo livre ou cronometrado) e ajustes.
+// Telas do app.
+module Tela {
+    const MENU as Number = 0;       // menu inicial
+    const TEMPO as Number = 1;      // cronômetro: tempo total
+    const AVISO as Number = 2;      // cronômetro: aviso a cada
+    const SLIDES as Number = 3;     // apresentação (passador de slides)
+}
+
+// Estado do app: em que tela está, ajustes, tempo da apresentação e envio
+// dos comandos ("next"/"prev") para o ntfy.
 //
 // Cada comando passa por duas etapas, sempre uma requisição por vez:
 //   1) publicar ("ENVIANDO"): POST do comando no ntfy;
@@ -28,45 +35,172 @@ class Controle {
     private const AVISO_TOQUES as Number = 3;   // vibrações suaves por aviso
     private const FIM_TOQUES as Number = 5;     // vibrações fortes no fim
     private const MAX_MIN as Number = 180;      // maior valor dos ajustes
+    // Quanto tempo o aviso do topo fica na tela depois do resultado.
+    private const OK_MS as Number = 3000;
+    private const ERRO_MS as Number = 10000;
 
-    var status as String = "PRONTO";            // situação do último envio
+    var tela as Number = Tela.MENU;
+    var item as Number = 0;                     // menu: 0 livre, 1 cronômetro, 2 luz
+    var opcao as Number = 0;                    // minutos mostrados nos ajustes
+    var cronometrado as Boolean = false;        // modo da apresentação atual
+    var duracaoMin as Number = 20;              // cronômetro: tempo total
+    var avisoMin as Number = 5;                 // cronômetro: aviso a cada (0 = sem)
+    var luz as Boolean = true;                  // manter a luz do visor acesa
+    var status as String = "";                  // aviso do topo: último envio
     var detalhe as String = "";                 // tempo da confirmação ou erro
-    var cor as Graphics.ColorType = Graphics.COLOR_BLACK;   // faixa de status
     var slide as Number = 1;                    // contador de slides
     var inicio as Number? = null;               // System.getTimer() do 1º clique
-    var duracaoMin as Number = 0;               // 0 = modo livre; senão, minutos
-    var avisoMin as Number = 5;                 // aviso a cada N minutos (0 = não)
     var avisando as Boolean = false;            // aviso de tempo em andamento
     var saindo as Boolean = false;              // esperando o 2º BACK para sair
-    var ajuste as Number = 0;                   // 0 = fora, 1 = tempo, 2 = aviso
-    var opcao as Number = 0;                    // minutos mostrados no ajuste
 
+    private var _ocupado as Boolean = false;    // comando ainda sem resultado
     private var _noAr as Boolean = false;       // há uma requisição em andamento
     private var _fila as String? = null;        // no máximo UM comando na fila
     private var _ultimo as String = "";         // último comando publicado
     private var _id as String = "";             // id desse comando no ntfy
     private var _delta as Number = 0;           // slides ainda não confirmados
+    private var _lote as Number = 0;            // comandos ainda não confirmados
     private var _tentativa as Number = 0;       // consultas já feitas
     private var _clique as Number = 0;          // System.getTimer() do envio
     private var _pausa as Timer.Timer = new Timer.Timer();
+    private var _pulsos as Number = 0;          // vibrações de "OK" que faltam
+    private var _statusAte as Number = 0;       // até quando o aviso do topo fica
+    private var _saidaEm as Number = 0;         // quando o 1º BACK foi apertado
     private var _proxAviso as Number = 0;       // próximo aviso: segundos que faltam
     private var _fimAvisado as Boolean = false; // o fim do tempo já foi avisado
     private var _suaves as Number = 0;          // vibrações suaves ainda a dar
     private var _fortes as Number = 0;          // vibrações fortes ainda a dar
-    private var _modoEm as Number = 0;          // último botão em saindo/ajuste
 
     function initialize() {
         // Os ajustes ficam guardados no relógio.
-        duracaoMin = lerAjuste("duracaoMin", 0);
-        avisoMin = lerAjuste("avisoMin", 5);
+        duracaoMin = lerNumero("duracaoMin", 20);
+        if (duracaoMin < 1) {
+            duracaoMin = 20;
+        }
+        avisoMin = lerNumero("avisoMin", 5);
+        item = lerNumero("modo", 0);            // o menu abre no último modo usado
+        var luzSalva = Application.Storage.getValue("luz");
+        if (luzSalva instanceof Boolean) {
+            luz = luzSalva;
+        }
     }
 
-    private function lerAjuste(chave as String, padrao as Number) as Number {
+    private function lerNumero(chave as String, padrao as Number) as Number {
         var valor = Application.Storage.getValue(chave);
         if (valor instanceof Number) {
             return valor;
         }
         return padrao;
+    }
+
+    // ----------------------------------------------------------------- menu
+
+    // UP e DOWN no menu: opção anterior (-1) ou seguinte (+1).
+    function moverMenu(passo as Number) as Void {
+        item = (item + passo + 3) % 3;
+        WatchUi.requestUpdate();
+    }
+
+    // START no menu.
+    function escolherMenu() as Void {
+        if (item == 0) {
+            comecar(false);                     // direto para o passador livre
+        } else if (item == 1) {
+            opcao = duracaoMin;                 // configura o cronômetro
+            tela = Tela.TEMPO;
+        } else {
+            luz = !luz;
+            Application.Storage.setValue("luz", luz);
+        }
+        WatchUi.requestUpdate();
+    }
+
+    // UP (+1) e DOWN (-1) nos ajustes: de 1 em 1 minuto até 30, de 5 em 5
+    // até 60 e de 15 em 15 até 180. No aviso, zero vale "sem aviso".
+    function mudarOpcao(sentido as Number) as Void {
+        var passo = 15;
+        if (opcao < 30 || (opcao == 30 && sentido < 0)) {
+            passo = 1;
+        } else if (opcao < 60 || (opcao == 60 && sentido < 0)) {
+            passo = 5;
+        }
+        var minimo = (tela == Tela.TEMPO) ? 1 : 0;
+        opcao += sentido * passo;
+        if (opcao < minimo) {
+            opcao = minimo;
+        } else if (opcao > MAX_MIN) {
+            opcao = MAX_MIN;
+        }
+        WatchUi.requestUpdate();
+    }
+
+    // START nos ajustes: grava e segue (tempo total -> aviso -> apresentação).
+    function avancarAjuste() as Void {
+        if (tela == Tela.TEMPO) {
+            duracaoMin = opcao;
+            Application.Storage.setValue("duracaoMin", opcao);
+            opcao = avisoMin;
+            tela = Tela.AVISO;
+        } else {
+            avisoMin = opcao;
+            Application.Storage.setValue("avisoMin", opcao);
+            comecar(true);
+        }
+        WatchUi.requestUpdate();
+    }
+
+    // BACK nos ajustes: volta uma tela, sem gravar o que está na tela.
+    function voltarAjuste() as Void {
+        if (tela == Tela.AVISO) {
+            opcao = duracaoMin;
+            tela = Tela.TEMPO;
+        } else {
+            tela = Tela.MENU;
+        }
+        WatchUi.requestUpdate();
+    }
+
+    // Abre a tela de apresentação, zerada, no modo escolhido.
+    private function comecar(comTempo as Boolean) as Void {
+        cronometrado = comTempo;
+        item = comTempo ? 1 : 0;
+        Application.Storage.setValue("modo", item);
+        inicio = null;
+        slide = 1;
+        status = "";
+        detalhe = "";
+        saindo = false;
+        avisando = false;
+        _statusAte = 0;
+        _delta = 0;
+        _lote = 0;
+        _fila = null;
+        _suaves = 0;
+        _fortes = 0;
+        _proxAviso = 0;
+        _fimAvisado = false;
+        tela = Tela.SLIDES;
+    }
+
+    // BACK na apresentação: o primeiro só pergunta; um segundo BACK em 3 s
+    // devolve true (e quem chamou volta para o menu).
+    function pedirSaida() as Boolean {
+        if (saindo) {
+            return true;
+        }
+        saindo = true;
+        _saidaEm = System.getTimer();
+        WatchUi.requestUpdate();
+        return false;
+    }
+
+    function irParaMenu() as Void {
+        _pausa.stop();
+        _pulsos = 0;
+        saindo = false;
+        avisando = false;
+        tela = Tela.MENU;
+        WatchUi.requestUpdate();
     }
 
     // ---------------------------------------------------------------- tempo
@@ -80,33 +214,18 @@ class Controle {
         return (System.getTimer() - ini) / 1000;
     }
 
-    // Recalcula o próximo aviso a partir do tempo que falta agora. No modo
-    // cronometrado os avisos caem quando faltam múltiplos de avisoMin
-    // (por exemplo: faltam 10, faltam 5).
-    private function programarAvisos() as Void {
-        var falta = duracaoMin * 60 - decorrido();
-        var passo = avisoMin * 60;
-        _proxAviso = 0;
-        if (passo > 0 && falta > 0) {
-            _proxAviso = ((falta - 1) / passo) * passo;
-        }
-        _fimAvisado = (falta <= 0);
-        _suaves = 0;
-        _fortes = 0;
-    }
-
     // Chamado pela tela uma vez por segundo.
     function tique() as Void {
-        // A pergunta de saída e o ajuste se desfazem sozinhos se ninguém mexer.
-        var parado = System.getTimer() - _modoEm;
-        if (parado > 3000) {
+        // Tela sempre ligada: cada chamada renova o tempo da luz do visor.
+        if (luz && (Attention has :backlight)) {
+            Attention.backlight(true);
+        }
+        // A pergunta de saída se desfaz sozinha.
+        if (saindo && System.getTimer() - _saidaEm > 3000) {
             saindo = false;
         }
-        if (parado > 8000) {
-            ajuste = 0;
-        }
-        // Modo cronometrado: avisos durante a contagem e alarme no fim.
-        if (inicio != null && duracaoMin > 0) {
+        // Cronômetro: avisos durante a contagem e alarme no fim.
+        if (tela == Tela.SLIDES && cronometrado && inicio != null) {
             var falta = duracaoMin * 60 - decorrido();
             if (!_fimAvisado && falta <= 0) {
                 _fimAvisado = true;
@@ -127,68 +246,10 @@ class Controle {
         }
     }
 
-    // -------------------------------------------------------- sair e ajustes
-
-    // BACK: o primeiro só pergunta; um segundo BACK em 3 s devolve true.
-    function pedirSaida() as Boolean {
-        if (saindo) {
-            return true;
-        }
-        saindo = true;
-        _modoEm = System.getTimer();
-        WatchUi.requestUpdate();
-        return false;
-    }
-
-    // Segurar UP: abre os ajustes, começando pelo tempo total.
-    function abrirAjuste() as Void {
-        saindo = false;
-        ajuste = 1;
-        opcao = duracaoMin;
-        _modoEm = System.getTimer();
-        WatchUi.requestUpdate();
-    }
-
-    // UP (+1) e DOWN (-1) no ajuste: de 1 em 1 minuto até 30, de 5 em 5 até
-    // 60 e de 15 em 15 até 180. Zero vale "LIVRE" (tempo) ou "DESLIGADO" (aviso).
-    function mudarOpcao(sentido as Number) as Void {
-        var passo = 15;
-        if (opcao < 30 || (opcao == 30 && sentido < 0)) {
-            passo = 1;
-        } else if (opcao < 60 || (opcao == 60 && sentido < 0)) {
-            passo = 5;
-        }
-        opcao += sentido * passo;
-        if (opcao < 0) {
-            opcao = 0;
-        } else if (opcao > MAX_MIN) {
-            opcao = MAX_MIN;
-        }
-        _modoEm = System.getTimer();
-        WatchUi.requestUpdate();
-    }
-
-    // START no ajuste: grava no relógio e passa para o ajuste seguinte.
-    function gravarAjuste() as Void {
-        if (ajuste == 1) {
-            duracaoMin = opcao;
-            Application.Storage.setValue("duracaoMin", opcao);
-            ajuste = (opcao > 0) ? 2 : 0;       // no modo livre não há aviso
-            opcao = avisoMin;
-        } else {
-            avisoMin = opcao;
-            Application.Storage.setValue("avisoMin", opcao);
-            ajuste = 0;
-        }
-        programarAvisos();
-        _modoEm = System.getTimer();
-        WatchUi.requestUpdate();
-    }
-
-    // BACK no ajuste: sai sem gravar o que está na tela.
-    function sairDoAjuste() as Void {
-        ajuste = 0;
-        WatchUi.requestUpdate();
+    // O aviso do topo só aparece enquanto há um comando em andamento e por
+    // alguns segundos depois do resultado.
+    function statusVisivel() as Boolean {
+        return _ocupado || System.getTimer() < _statusAte;
     }
 
     // -------------------------------------------------------------- comandos
@@ -198,13 +259,19 @@ class Controle {
         saindo = false;                         // desiste de sair
         if (inicio == null) {
             inicio = System.getTimer();         // o tempo parte no 1º clique
-            programarAvisos();
+            // Os avisos caem quando faltam múltiplos de avisoMin
+            // (por exemplo: faltam 10, faltam 5).
+            var passo = avisoMin * 60;
+            if (cronometrado && passo > 0) {
+                _proxAviso = ((duracaoMin * 60 - 1) / passo) * passo;
+            }
         }
         if (_noAr) {
             _fila = cmd;                        // fila de 1: vale o último clique
             status = "ENVIANDO +1";
         } else {
             _pausa.stop();                      // não espera a conferência anterior
+            _pulsos = 0;
             publicar(cmd);
         }
         WatchUi.requestUpdate();
@@ -212,10 +279,12 @@ class Controle {
 
     // Etapa 1: publica o comando pelo celular (Garmin Connect, via Bluetooth).
     private function publicar(cmd as String) as Void {
+        _ocupado = true;
         _noAr = true;
         _ultimo = cmd;
         _clique = System.getTimer();
-        mostrar("ENVIANDO", "", Graphics.COLOR_YELLOW);
+        status = "ENVIANDO";
+        detalhe = "";
         // "Publish as JSON" do ntfy: POST na URL base com o tópico no corpo.
         // No fr955 o makeWebRequest só envia dicionários (não há corpo de texto
         // puro), e com :responseType JSON a resposta precisa ser application/json,
@@ -246,6 +315,7 @@ class Controle {
             falhar(codigo);
         } else {
             _delta += _ultimo.equals("next") ? 1 : -1;
+            _lote += 1;
             var id = (dados instanceof Dictionary) ? dados["id"] : null;
             if (proximo != null) {
                 _fila = null;
@@ -254,6 +324,7 @@ class Controle {
                 _id = id;
                 _tentativa = 0;
                 status = "CONFIRMANDO";
+                _pausa.stop();
                 _pausa.start(method(:conferir), ESPERA_MS, false);
             } else {
                 confirmado();                   // sem id não há o que conferir
@@ -299,52 +370,75 @@ class Controle {
             if (codigo == Communications.BLE_CONNECTION_UNAVAILABLE) {
                 falhar(codigo);
             } else if (_tentativa < TENTATIVAS) {
+                _pausa.stop();
                 _pausa.start(method(:conferir), ESPERA_MS, false);
             } else {
                 // O ntfy recebeu o comando, mas nenhum computador confirmou.
                 System.println("sem confirmacao");
-                _delta = 0;
-                mostrar("SEM PC", (codigo == 200) ? "sem resposta"
-                        : "código " + codigo, Graphics.COLOR_RED);
-                vibrar(SUAVE, LONGA_MS);
+                encerrar("SEM PC", (codigo == 200) ? "sem resposta"
+                        : "código " + codigo);
             }
         }
         WatchUi.requestUpdate();
     }
 
-    // O computador executou o comando: atualiza o contador e avisa.
+    // O computador executou: atualiza o contador e responde uma vez para
+    // cada comando confirmado (dois toques seguidos = "OK x2" e duas vibrações).
     private function confirmado() as Void {
+        var quantos = _lote;
         slide += _delta;
         if (slide < 1) {
             slide = 1;
         }
         _delta = 0;
+        _lote = 0;
+        _ocupado = false;
         var ms = System.getTimer() - _clique;
-        System.println("confirmado em " + ms + " ms");
-        mostrar(_ultimo.equals("next") ? "OK >>" : "<< OK",
-                (ms / 1000.0).format("%.1f") + " s", Graphics.COLOR_GREEN);
+        System.println("confirmado em " + ms + " ms (" + quantos + ")");
+        status = _ultimo.equals("next") ? "OK >>" : "<< OK";
+        if (quantos > 1) {
+            status = "OK x" + quantos;
+        }
+        detalhe = (ms / 1000.0).format("%.1f") + " s";
+        _statusAte = System.getTimer() + OK_MS;
         vibrar(SUAVE, CURTA_MS);
+        _pulsos = ((quantos > 4) ? 4 : quantos) - 1;
+        if (_pulsos > 0) {
+            _pausa.stop();
+            _pausa.start(method(:pulsar), 300, true);
+        }
+    }
+
+    // Vibrações seguintes de um "OK" de vários comandos.
+    function pulsar() as Void {
+        vibrar(SUAVE, CURTA_MS);
+        _pulsos -= 1;
+        if (_pulsos <= 0) {
+            _pausa.stop();
+        }
     }
 
     // O comando nem chegou ao ntfy.
     private function falhar(codigo as Number) as Void {
-        _fila = null;                           // não insiste em cima de um erro
-        _delta = 0;
         var texto = "SEM INTERNET";
         if (codigo == Communications.BLE_CONNECTION_UNAVAILABLE) {
             texto = "SEM CELULAR";
         } else if (codigo > 0) {
             texto = "ERRO HTTP";                // ex.: 429 = limite do ntfy
         }
-        mostrar(texto, "código " + codigo, Graphics.COLOR_RED);
-        vibrar(SUAVE, LONGA_MS);
+        encerrar(texto, "código " + codigo);
     }
 
-    private function mostrar(texto as String, det as String,
-            c as Graphics.ColorType) as Void {
+    // Fim com falha: mostra o aviso por mais tempo e dá a vibração longa.
+    private function encerrar(texto as String, det as String) as Void {
+        _fila = null;                           // não insiste em cima de um erro
+        _delta = 0;
+        _lote = 0;
+        _ocupado = false;
         status = texto;
         detalhe = det;
-        cor = c;
+        _statusAte = System.getTimer() + ERRO_MS;
+        vibrar(SUAVE, LONGA_MS);
     }
 
     // No Forerunner o relógio pode ignorar a intensidade pedida, então a

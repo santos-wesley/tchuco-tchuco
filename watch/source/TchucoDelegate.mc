@@ -4,11 +4,10 @@ import Toybox.WatchUi;
 
 // Tudo é feito só pelos botões físicos; a tela sensível ao toque é ignorada.
 //
-//   START         próximo slide
-//   DOWN          slide anterior
-//   BACK          pede confirmação; um segundo BACK em seguida fecha o app
-//   segurar UP    ajustes: tempo total e intervalo do aviso
-//                 (UP aumenta, DOWN diminui, START grava, BACK sai)
+//   Menu inicial   UP/DOWN escolhem, START confirma, BACK fecha o app
+//   Ajustes        UP aumenta, DOWN diminui, START segue, BACK volta
+//   Apresentação   START = próximo slide, DOWN = slide anterior,
+//                  BACK duas vezes = volta para o menu
 //
 // Usa InputDelegate (e não BehaviorDelegate) de propósito: no BehaviorDelegate
 // um toque na tela vira onSelect e um deslizar vira onNextPage/onPreviousPage.
@@ -34,6 +33,9 @@ class TchucoDelegate extends WatchUi.InputDelegate {
 
     function onKey(evento as WatchUi.KeyEvent) as Boolean {
         var tecla = evento.getKey();
+        var start = (tecla == WatchUi.KEY_ENTER);
+        var up = (tecla == WatchUi.KEY_UP);
+        var down = (tecla == WatchUi.KEY_DOWN);
         // No 955, deslizar o dedo para a direita também chega como BACK.
         // Vale como BACK de verdade se o botão foi apertado agora há pouco
         // ou, na dúvida, se a tela não acabou de ser tocada.
@@ -41,31 +43,38 @@ class TchucoDelegate extends WatchUi.InputDelegate {
         var back = (tecla == WatchUi.KEY_ESC)
                 && (agora - _backEm < 2000 || agora - _toqueEm > 800);
 
-        if (_controle.ajuste != 0) {
-            // Ajustes (tempo total e aviso).
-            if (tecla == WatchUi.KEY_UP) {
-                _controle.mudarOpcao(1);            // mais minutos
-            } else if (tecla == WatchUi.KEY_DOWN) {
-                _controle.mudarOpcao(-1);           // menos minutos
-            } else if (tecla == WatchUi.KEY_ENTER) {
-                _controle.gravarAjuste();           // START grava e segue
-            } else if (back) {
-                _controle.sairDoAjuste();           // BACK sai sem gravar
+        if (_controle.tela == Tela.SLIDES) {
+            if (start) {
+                _controle.comando("next");
+            } else if (down) {
+                _controle.comando("prev");
+            } else if (back && _controle.pedirSaida()) {
+                _controle.irParaMenu();             // segundo BACK
             }
-        } else if (tecla == WatchUi.KEY_ENTER) {
-            _controle.comando("next");              // START: avança
-        } else if (tecla == WatchUi.KEY_DOWN) {
-            _controle.comando("prev");              // DOWN: volta
-        } else if (tecla == WatchUi.KEY_MENU) {
-            _controle.abrirAjuste();                // segurar UP
-        } else if (back) {
-            if (_controle.pedirSaida()) {           // true no segundo BACK
+        } else if (_controle.tela == Tela.MENU) {
+            if (up) {
+                _controle.moverMenu(-1);
+            } else if (down) {
+                _controle.moverMenu(1);
+            } else if (start) {
+                _controle.escolherMenu();
+            } else if (back) {
                 System.exit();
             }
-        } else if (tecla != WatchUi.KEY_ESC) {
-            return false;   // outras teclas: comportamento padrão do sistema
+        } else {
+            if (up) {
+                _controle.mudarOpcao(1);            // mais minutos
+            } else if (down) {
+                _controle.mudarOpcao(-1);           // menos minutos
+            } else if (start) {
+                _controle.avancarAjuste();
+            } else if (back) {
+                _controle.voltarAjuste();
+            }
         }
-        return true;
+        // As quatro teclas do app nunca passam para o sistema; as outras
+        // (por exemplo, segurar UP) seguem o comportamento padrão.
+        return start || up || down || (tecla == WatchUi.KEY_ESC);
     }
 
     // Toques na tela: só anota o momento e devolve true, que avisa o sistema
