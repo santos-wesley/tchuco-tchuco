@@ -12,6 +12,9 @@
         <iq:permissions>
             <!-- Necessária para o Communications.makeWebRequest. -->
             <iq:uses-permission id="Communications"/>
+            <!-- Necessária para gravar a "atividade" que faz o relógio seguir
+                 a regra de notificações "durante a atividade". -->
+            <iq:uses-permission id="Fit"/>
         </iq:permissions>
         <iq:languages>
             <!-- Os textos do app estão em português. -->
