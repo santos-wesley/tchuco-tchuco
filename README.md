@@ -56,6 +56,12 @@ relógio.
 Os minutos vão de 1 em 1 até 30, de 5 em 5 até 60 e de 15 em 15 até 180.
 BACK volta uma tela sem gravar.
 
+No cronômetro, o aviso só acontece se o intervalo for menor que o tempo total.
+Quando não é (2 minutos de tempo com aviso a cada 5, por exemplo), a tela do
+tempo total mostra na hora "aviso 5 não cabe" numa faixa branca, e o menu
+mostra o mesmo texto ao destacar CRONÔMETRO. Se você começar assim mesmo, a
+apresentação fica só com o alarme do fim. No modo livre não há esse limite.
+
 ### Apresentação
 
 | Botão | Ação |
@@ -358,6 +364,8 @@ Com o script rodando em `--dry-run`, abra o app no simulador (seção 3.4):
 - com AVISO em NÃO, o cronômetro só dá o alarme do fim; no modo LIVRE com
   AVISO ligado, o meio da tela acende a cada intervalo depois do primeiro
   START;
+- com AVISO a cada 5 minutos, escolha CRONÔMETRO e baixe o tempo total: com 5
+  ou menos aparece a faixa "aviso 5 não cabe"; com 6 volta "START começa";
 - no menu, BACK fecha o app e o terminal mostra `atividade descartada`.
 
 **4. Relógio de verdade**
