@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Tchuco Tchuco - lado do computador.
+"""Tchuco Tchuco - computer side.
 
-Escuta um tópico do ntfy.sh e transforma cada mensagem em uma tecla:
-    "next" -> seta direita        "prev" -> seta esquerda
+Listens to an ntfy.sh topic and turns each message into a key press:
+    "next" -> right arrow        "prev" -> left arrow
 
-Depois de cada comando, publica uma confirmação no tópico "<tópico>-ack";
-é assim que o relógio sabe que existe um computador ouvindo.
+After each command it publishes a confirmation to the "<topic>-ack" topic;
+that is how the watch knows a computer is listening.
 
-Uso:
-    python tchuco.py SEU_TOPICO            (ou a variável TCHUCO_TOPICO)
-    python tchuco.py SEU_TOPICO --dry-run  (só imprime, não aperta teclas)
+Usage:
+    python tchuco.py YOUR_TOPIC            (or the TCHUCO_TOPIC variable)
+    python tchuco.py YOUR_TOPIC --dry-run  (only prints, presses no keys)
 """
 import argparse
 import http.client
@@ -20,114 +20,114 @@ import threading
 import time
 import urllib.request
 
-SERVIDOR = "https://ntfy.sh"
-# comando recebido -> (tecla no pynput, texto do log)
-COMANDOS = {
-    "next": ("right", "seta direita"),
-    "prev": ("left", "seta esquerda"),
+SERVER = "https://ntfy.sh"
+# received command -> (pynput key, text for the log)
+COMMANDS = {
+    "next": ("right", "right arrow"),
+    "prev": ("left", "left arrow"),
 }
-# Segundos sem receber nada = conexão morta. O ntfy.sh manda um "keepalive"
-# a cada 45 s, então um silêncio maior que isso significa que a conexão caiu.
+# Seconds without receiving anything = dead connection. ntfy.sh sends a
+# "keepalive" every 45 s, so a longer silence means the connection dropped.
 TIMEOUT = 60
-# Teto, em segundos, da espera entre tentativas de reconexão.
-ESPERA_MAX = 15
+# Ceiling, in seconds, for the wait between reconnection attempts.
+MAX_WAIT = 15
 
 
-def log(texto):
-    print(time.strftime("%H:%M:%S"), texto, flush=True)
+def log(text):
+    print(time.strftime("%H:%M:%S"), text, flush=True)
 
 
-def criar_apertador(dry_run):
-    """Devolve a função que aperta uma tecla; no --dry-run não faz nada."""
+def make_presser(dry_run):
+    """Return the key-pressing function; with --dry-run it does nothing."""
     if dry_run:
-        return lambda tecla: None
-    # Importado só aqui: o --dry-run funciona mesmo sem o pynput instalado.
+        return lambda key: None
+    # Imported only here: --dry-run works even without pynput installed.
     from pynput.keyboard import Controller, Key
 
-    teclado = Controller()
+    keyboard = Controller()
 
-    def apertar(tecla):
-        teclado.press(getattr(Key, tecla))
-        teclado.release(getattr(Key, tecla))
+    def press(key):
+        keyboard.press(getattr(Key, key))
+        keyboard.release(getattr(Key, key))
 
-    return apertar
+    return press
 
 
-def ler_argumentos():
+def read_arguments():
     parser = argparse.ArgumentParser(
-        description="Passa slides com comandos vindos do ntfy.")
+        description="Changes slides with commands coming from ntfy.")
     parser.add_argument(
-        "topico", nargs="?", default=os.environ.get("TCHUCO_TOPICO"),
-        help="tópico do ntfy (ou variável de ambiente TCHUCO_TOPICO)")
+        "topic", nargs="?", default=os.environ.get("TCHUCO_TOPIC"),
+        help="ntfy topic (or the TCHUCO_TOPIC environment variable)")
     parser.add_argument(
         "--dry-run", action="store_true",
-        help="só imprime os comandos, sem apertar teclas")
+        help="only print the commands, without pressing keys")
     args = parser.parse_args()
-    if not args.topico:
-        parser.error("informe o tópico como argumento ou na variável "
-                     "de ambiente TCHUCO_TOPICO")
+    if not args.topic:
+        parser.error("give the topic as an argument or in the TCHUCO_TOPIC "
+                     "environment variable")
     return args
 
 
-def confirmar(topico, id_comando):
-    """Publica no tópico de confirmação o id do comando já executado."""
+def confirm(topic, command_id):
+    """Publish the id of the command just executed to the ack topic."""
     try:
-        pedido = urllib.request.Request(
-            f"{SERVIDOR}/{topico}-ack", data=id_comando.encode())
-        urllib.request.urlopen(pedido, timeout=10).close()
-    except (OSError, http.client.HTTPException) as erro:
-        log(f"confirmação não enviada: {erro}")
+        request = urllib.request.Request(
+            f"{SERVER}/{topic}-ack", data=command_id.encode())
+        urllib.request.urlopen(request, timeout=10).close()
+    except (OSError, http.client.HTTPException) as error:
+        log(f"confirmation not sent: {error}")
 
 
-def tratar(evento, apertar, topico):
-    """Trata uma linha do stream: só "next" e "prev" viram tecla."""
-    if evento.get("event") != "message":
-        return  # "open" e "keepalive" não são comandos
-    comando = evento.get("message", "").strip().lower()
-    if comando in COMANDOS:
-        tecla, nome = COMANDOS[comando]
-        apertar(tecla)
-        log(f"{comando} -> {nome}")
-        # A confirmação vai em outra thread para não atrasar o próximo
-        # comando; o relógio procura por este id no tópico "<tópico>-ack".
-        threading.Thread(target=confirmar, daemon=True,
-                         args=(topico, evento.get("id", ""))).start()
+def handle(event, press, topic):
+    """Handle one line of the stream: only "next" and "prev" become keys."""
+    if event.get("event") != "message":
+        return  # "open" and "keepalive" are not commands
+    command = event.get("message", "").strip().lower()
+    if command in COMMANDS:
+        key, name = COMMANDS[command]
+        press(key)
+        log(f"{command} -> {name}")
+        # The confirmation goes in another thread so it does not delay the
+        # next command; the watch looks for this id in "<topic>-ack".
+        threading.Thread(target=confirm, daemon=True,
+                         args=(topic, event.get("id", ""))).start()
     else:
-        log(f"mensagem ignorada: {comando[:40]!r}")
+        log(f"ignored message: {command[:40]!r}")
 
 
 def main():
-    args = ler_argumentos()
-    # Ctrl+C encerra na hora, mesmo no meio de uma leitura de rede.
+    args = read_arguments()
+    # Ctrl+C quits right away, even in the middle of a network read.
     signal.signal(signal.SIGINT, signal.SIG_DFL)
-    apertar = criar_apertador(args.dry_run)
+    press = make_presser(args.dry_run)
 
-    # Stream JSON do ntfy: uma mensagem por linha. Sem o parâmetro "since"
-    # o servidor só entrega o que for publicado DEPOIS da conexão, então
-    # mensagens antigas do tópico nunca são processadas.
-    url = f"{SERVIDOR}/{args.topico}/json"
-    modo = " (dry-run: nenhuma tecla é apertada)" if args.dry_run else ""
-    # O tópico funciona como senha: o log mostra só o começo dele.
-    log(f"tópico {args.topico[:4]}... em {SERVIDOR}{modo}")
+    # ntfy's JSON stream: one message per line. Without the "since" parameter
+    # the server only delivers what is published AFTER the connection, so old
+    # messages in the topic are never processed.
+    url = f"{SERVER}/{args.topic}/json"
+    mode = " (dry-run: no keys are pressed)" if args.dry_run else ""
+    # The topic works as a password: the log shows only its beginning.
+    log(f"topic {args.topic[:4]}... on {SERVER}{mode}")
 
-    espera = 1
+    wait = 1
     while True:
         try:
-            with urllib.request.urlopen(url, timeout=TIMEOUT) as resposta:
-                for linha in resposta:
-                    evento = json.loads(linha)
-                    if evento.get("event") == "open":
-                        log("conectado; aguardando comandos (Ctrl+C sai)")
-                        espera = 1
-                    tratar(evento, apertar, args.topico)
-            log("o servidor encerrou a conexão")
-        except (OSError, ValueError, http.client.HTTPException) as erro:
-            # OSError: rede, timeout e erros HTTP.
-            # ValueError: linha que não é JSON.
-            log(f"conexão caiu: {erro}")
-        log(f"reconectando em {espera} s")
-        time.sleep(espera)
-        espera = min(espera * 2, ESPERA_MAX)
+            with urllib.request.urlopen(url, timeout=TIMEOUT) as response:
+                for line in response:
+                    event = json.loads(line)
+                    if event.get("event") == "open":
+                        log("connected; waiting for commands (Ctrl+C quits)")
+                        wait = 1
+                    handle(event, press, args.topic)
+            log("the server closed the connection")
+        except (OSError, ValueError, http.client.HTTPException) as error:
+            # OSError: network, timeout and HTTP errors.
+            # ValueError: a line that is not JSON.
+            log(f"connection lost: {error}")
+        log(f"reconnecting in {wait} s")
+        time.sleep(wait)
+        wait = min(wait * 2, MAX_WAIT)
 
 
 if __name__ == "__main__":
