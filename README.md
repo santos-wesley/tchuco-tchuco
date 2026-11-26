@@ -48,6 +48,7 @@ servidor próprio, app de celular, banco de dados nem login.
 - [Limitações conhecidas](#limitações-conhecidas)
 - [Estado do projeto](#estado-do-projeto)
 - [Contribuindo](#contribuindo)
+- [Licença](#licença)
 
 ## Como funciona
 
@@ -96,8 +97,13 @@ relógio. Todos os comandos são executados na pasta do projeto.
 
 ### 1. Baixe o projeto
 
-Clone este repositório (botão **Code** do GitHub) ou baixe o ZIP, e abra um
-terminal na pasta do projeto.
+Clone este repositório, ou baixe o ZIP pelo botão **Code** do GitHub, e abra
+um terminal na pasta do projeto:
+
+```
+git clone https://github.com/santos-wesley/tchuco-tchuco.git
+cd tchuco-tchuco
+```
 
 ### 2. Crie o seu tópico
 
@@ -614,3 +620,8 @@ Sugestões e correções são bem-vindas: abra uma issue contando o que acontece
 (modelo do relógio, sistema do computador e o que apareceu na tela) ou mande
 um pull request. O código e os comentários estão em português, e a ideia é
 continuar pequeno: sem servidor próprio, sem app de celular e sem login.
+
+## Licença
+
+[MIT](LICENSE). Você pode usar, modificar e distribuir o código, desde que
+mantenha o aviso de direitos autorais e o texto da licença.
