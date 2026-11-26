@@ -1,0 +1,5 @@
+# Texto sempre com fim de linha LF dentro do repositório, em qualquer sistema.
+* text=auto
+
+# Binários: nunca converter.
+*.png binary
