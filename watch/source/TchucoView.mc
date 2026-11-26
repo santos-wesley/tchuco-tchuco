@@ -78,11 +78,15 @@ class TchucoView extends WatchUi.View {
         var rotulos = ["LIVRE", "CRONÔMETRO",
                 aviso ? "AVISO: " + _controle.avisoMin + " MIN" : "AVISO: NÃO",
                 _controle.luz ? "LUZ: LIGADA" : "LUZ: AUTO"];
+        var crono = _controle.duracaoMin + " min" + (aviso
+                ? ", aviso " + _controle.avisoMin : ", sem aviso");
+        if (_controle.avisoNaoCabe(_controle.duracaoMin)) {
+            crono = naoCabe();
+        }
         var ajudas = [
                 aviso ? "aviso a cada " + _controle.avisoMin + " min"
                         : "sem aviso de tempo",
-                _controle.duracaoMin + " min" + (aviso
-                        ? ", aviso " + _controle.avisoMin : ", sem aviso"),
+                crono,
                 "vale nos dois modos",
                 "START troca"];
         for (var i = 0; i < rotulos.size(); i++) {
@@ -92,6 +96,12 @@ class TchucoView extends WatchUi.View {
         dc.drawText(dc.getWidth() / 2, h * 87 / 100, Graphics.FONT_XTINY,
                 ajudas[_controle.item],
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+    }
+
+    // No cronômetro, o texto que diz que o intervalo dos avisos é igual ou
+    // maior que o tempo total (ex.: 2 minutos de tempo, aviso a cada 5).
+    private function naoCabe() as String {
+        return "aviso " + _controle.avisoMin + " não cabe";
     }
 
     // Ajustes. Minutos: o valor grande no centro, "+" ao lado do botão UP e
@@ -121,6 +131,14 @@ class TchucoView extends WatchUi.View {
             dc.drawText(cx, h * 71 / 100, Graphics.FONT_SMALL, "MIN", centro);
             dc.drawText(w * 11 / 100, h * 48 / 100, Graphics.FONT_MEDIUM, "+", centro);
             dc.drawText(w * 17 / 100, h * 71 / 100, Graphics.FONT_MEDIUM, "-", centro);
+        }
+        // Tempo total em que o aviso não cabe: avisa na hora, em faixa branca
+        // com letra preta. Se começar assim, só haverá o alarme do fim.
+        if (_controle.tela == Tela.TEMPO
+                && _controle.avisoNaoCabe(_controle.opcao)) {
+            ajuda = naoCabe();
+            dc.fillRectangle(0, h * 80 / 100, w, h * 20 / 100);
+            dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
         }
         dc.drawText(cx, h * 88 / 100, Graphics.FONT_XTINY, ajuda, centro);
     }

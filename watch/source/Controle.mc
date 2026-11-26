@@ -231,6 +231,13 @@ class Controle {
         }
     }
 
+    // No cronômetro o aviso só acontece se o intervalo for menor que o tempo
+    // total: com 2 minutos de tempo, um aviso a cada 5 nunca chegaria. As
+    // telas usam isto para dizer, antes de começar, que o aviso não cabe.
+    function avisoNaoCabe(totalMin as Number) as Boolean {
+        return avisoLigado && avisoMin >= totalMin;
+    }
+
     // BACK na apresentação: o primeiro só pergunta; um segundo BACK em 3 s
     // devolve true (e quem chamou volta para o menu).
     function pedirSaida() as Boolean {
