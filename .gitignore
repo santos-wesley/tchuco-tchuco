@@ -1,9 +1,9 @@
-# Segredos locais: nunca vão para o git
+# Local secrets: never committed
 watch/source/Config.mc
 *.der
 *.pem
 
-# Saída do compilador Monkey C
+# Monkey C compiler output
 watch/bin/
 
 # Python

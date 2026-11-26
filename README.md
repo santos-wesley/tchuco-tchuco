@@ -1,125 +1,121 @@
 <p align="center">
-  <img src="watch/resources/drawables/launcher_icon.png" width="80" alt="Ícone do Tchuco Tchuco">
+  <img src="watch/resources/drawables/launcher_icon.png" width="80" alt="Tchuco Tchuco icon">
 </p>
 
 <h1 align="center">Tchuco Tchuco</h1>
 
 <p align="center">
-  Passe os slides pelo relógio.<br>
-  Um Garmin Forerunner 955 vira o controle da sua apresentação,
-  com cronômetro e avisos de tempo no pulso.
+  Change slides from your watch.<br>
+  A Garmin Forerunner 955 becomes your presentation remote,
+  with a timer and time alerts on your wrist.
 </p>
 
-<p align="center">
-  <em>Slide clicker for the Garmin Forerunner 955. This README is written in
-  Brazilian Portuguese.</em>
-</p>
+![The app's screens in the simulator](docs/screens.png)
 
-![Telas do app no simulador](docs/telas.png)
+You press START on the watch and the slide advances on the computer. The watch
+does not talk to the computer directly: the command leaves through the phone,
+goes through an [ntfy.sh](https://ntfy.sh) topic and reaches a Python script
+that presses the arrow key. That is why the two can be on different networks,
+and there is no server of your own, no phone app, no database and no login.
 
-Você aperta START no relógio e o slide avança no computador. O relógio não
-fala direto com o computador: o comando sai pelo celular, passa por um tópico
-do [ntfy.sh](https://ntfy.sh) e chega a um script Python que aperta a seta do
-teclado. Por isso os dois podem estar em redes diferentes, e não existe
-servidor próprio, app de celular, banco de dados nem login.
+- **Buttons only.** START goes forward and DOWN goes back. The touchscreen is
+  ignored, so an accidental brush never changes a slide.
+- **Confirmation on your wrist.** "OK" and the vibration only come after the
+  computer has run the command.
+- **Two modes.** Free, with a stopwatch that counts up, or timer, with a
+  countdown that goes from green to red and five strong vibrations at the end.
+- **Optional time alerts.** Three soft vibrations at every interval you
+  choose.
+- **Any slide program.** The script only presses the arrow keys, in whatever
+  window is in the foreground.
 
-- **Só botões.** START avança e DOWN volta. A tela sensível ao toque é
-  ignorada, para um esbarrão não passar slide.
-- **Confirmação no pulso.** O "OK" e a vibração só vêm depois que o
-  computador executou o comando.
-- **Dois modos.** Livre, com um cronômetro que conta para cima, ou cronômetro,
-  com contagem regressiva que vai do verde ao vermelho e cinco vibrações
-  fortes no fim.
-- **Avisos de tempo opcionais.** Três vibrações suaves a cada intervalo que
-  você escolher.
-- **Qualquer programa de slides.** O script só aperta as setas do teclado, na
-  janela que estiver em primeiro plano.
+## Contents
 
-## Índice
+- [How it works](#how-it-works)
+- [What you need](#what-you-need)
+- [Setup](#setup)
+- [Using the app](#using-the-app)
+- [Notifications during a presentation](#notifications-during-a-presentation)
+- [Troubleshooting](#troubleshooting)
+- [Test plan](#test-plan)
+- [Under the hood](#under-the-hood)
+- [Known limitations](#known-limitations)
+- [Project status](#project-status)
+- [Contributing](#contributing)
+- [License](#license)
 
-- [Como funciona](#como-funciona)
-- [O que você precisa](#o-que-você-precisa)
-- [Instalação](#instalação)
-- [Como usar](#como-usar)
-- [Notificações durante a apresentação](#notificações-durante-a-apresentação)
-- [Solução de problemas](#solução-de-problemas)
-- [Roteiro de teste](#roteiro-de-teste)
-- [Por dentro](#por-dentro)
-- [Limitações conhecidas](#limitações-conhecidas)
-- [Estado do projeto](#estado-do-projeto)
-- [Contribuindo](#contribuindo)
-- [Licença](#licença)
-
-## Como funciona
+## How it works
 
 ```mermaid
 flowchart LR
-    R["Relógio<br/>app Connect IQ"] -->|Bluetooth| C["Celular<br/>Garmin Connect"]
-    C -->|HTTPS| N["ntfy.sh<br/>tópico secreto"]
-    N -->|stream| P["Computador<br/>desktop/tchuco.py"]
-    P -->|"confirmação"| N
-    P -->|"seta do teclado"| S["Apresentação"]
+    W["Watch<br/>Connect IQ app"] -->|Bluetooth| P["Phone<br/>Garmin Connect"]
+    P -->|HTTPS| N["ntfy.sh<br/>secret topic"]
+    N -->|stream| C["Computer<br/>desktop/tchuco.py"]
+    C -->|"confirmation"| N
+    C -->|"arrow key"| S["Presentation"]
 ```
 
-1. O app do relógio manda `next` ou `prev` pelo celular pareado (Garmin
-   Connect, via Bluetooth).
-2. O celular publica o comando, por HTTPS, num tópico do ntfy.sh, um serviço
-   público de mensagens. O nome do tópico é o segredo que une os dois lados.
-3. O script do computador escuta esse tópico, aperta a seta direita ou a
-   esquerda e publica uma confirmação em `<tópico>-ack`.
-4. O relógio consulta a confirmação e só então mostra "OK".
+1. The watch app sends `next` or `prev` through the paired phone (Garmin
+   Connect, over Bluetooth).
+2. The phone publishes the command, over HTTPS, to a topic on ntfy.sh, a
+   public messaging service. The topic name is the secret that ties the two
+   sides together.
+3. The computer script listens to that topic, presses the right or the left
+   arrow and publishes a confirmation to `<topic>-ack`.
+4. The watch polls for the confirmation and only then shows "OK".
 
-| Pasta | O que é |
+| Folder | What it is |
 |---|---|
-| `watch/` | App do relógio (Connect IQ, Monkey C, alvo `fr955`) |
-| `desktop/` | Script do computador (Python 3, um arquivo) |
-| `docs/` | Imagens deste README |
+| `watch/` | The watch app (Connect IQ, Monkey C, target `fr955`) |
+| `desktop/` | The computer script (Python 3, a single file) |
+| `docs/` | Images for this README |
 
-## O que você precisa
+## What you need
 
-- **Relógio:** Garmin Forerunner 955 ou 955 Solar.
-- **Celular** pareado com o relógio, com o app Garmin Connect e internet.
-- **Computador** com Windows ou macOS, Python 3 e internet. É ele que mostra
-  os slides.
-- **Para compilar o app:** Java 11 ou mais novo, o Connect IQ SDK (gratuito,
-  pede uma conta Garmin), o `openssl` e um cabo USB.
+- **Watch:** Garmin Forerunner 955 or 955 Solar.
+- **Phone** paired with the watch, with the Garmin Connect app and internet
+  access.
+- **Computer** running Windows or macOS, with Python 3 and internet access.
+  This is the one showing the slides.
+- **To build the app:** Java 11 or newer, the Connect IQ SDK (free, it asks
+  for a Garmin account), `openssl` and a USB cable.
 
-Não é preciso criar conta no ntfy.sh.
+You do not need an ntfy.sh account.
 
-O app foi escrito para o 955. Outros relógios com Connect IQ exigiriam incluir
-o produto em `watch/manifest.xml` e conferir tela e botões; isso não foi
-testado.
+The app was written for the 955. Other Connect IQ watches would need their
+product added to `watch/manifest.xml` and the screen and buttons checked; that
+has not been tested.
 
-## Instalação
+## Setup
 
-São dez passos: os três primeiros cuidam do computador, e do 4 ao 9, do
-relógio. Todos os comandos são executados na pasta do projeto.
+There are ten steps: the first three take care of the computer, and steps 4 to
+9 take care of the watch. Every command runs from the project folder.
 
-### 1. Baixe o projeto
+### 1. Get the project
 
-Clone este repositório, ou baixe o ZIP pelo botão **Code** do GitHub, e abra
-um terminal na pasta do projeto:
+Clone this repository, or download the ZIP from GitHub's **Code** button, and
+open a terminal in the project folder:
 
 ```
 git clone https://github.com/santos-wesley/tchuco-tchuco.git
 cd tchuco-tchuco
 ```
 
-### 2. Crie o seu tópico
+### 2. Create your topic
 
-O tópico funciona como senha: quem souber o nome consegue passar os seus
-slides. Use um nome longo e aleatório e não o coloque no git. Para gerar um:
+The topic works as a password: whoever knows its name can change your slides.
+Use a long random name and keep it out of git. To generate one:
 
 ```
 python -c "import secrets; print('tchuco-' + secrets.token_hex(16))"
 ```
 
-Guarde o resultado. O mesmo tópico vai no computador (passo 3) e no relógio
-(passo 6).
+Keep the result. The same topic goes on the computer (step 3) and on the watch
+(step 6).
 
-### 3. Prepare o computador
+### 3. Set up the computer
 
-Requisitos: Python 3 (testado com o 3.13) e o pacote `pynput`.
+Requirements: Python 3 (tested with 3.13) and the `pynput` package.
 
 ```
 python -m venv .venv
@@ -127,93 +123,93 @@ python -m venv .venv
 pip install pynput
 ```
 
-Informe o tópico e rode o script em modo de ensaio, que só imprime os
-comandos, sem apertar teclas:
+Give the script your topic and run it in rehearsal mode, which only prints the
+commands and presses no keys:
 
 ```
 # Windows (PowerShell)
-$env:TCHUCO_TOPICO = "seu-topico"
+$env:TCHUCO_TOPIC = "your-topic"
 python desktop\tchuco.py --dry-run
 
 # macOS
-export TCHUCO_TOPICO="seu-topico"
+export TCHUCO_TOPIC="your-topic"
 python desktop/tchuco.py --dry-run
 ```
 
-Em outro terminal, com a mesma variável definida, publique um comando de
-teste (no PowerShell use `curl.exe`, porque `curl` é um apelido de outro
-comando):
+In another terminal, with the same variable set, publish a test command (in
+PowerShell use `curl.exe`, because `curl` is an alias for another command):
 
 ```
-curl.exe -d "next" "https://ntfy.sh/$env:TCHUCO_TOPICO"      (PowerShell)
-curl -d "next" "https://ntfy.sh/$TCHUCO_TOPICO"              (macOS)
+curl.exe -d "next" "https://ntfy.sh/$env:TCHUCO_TOPIC"      (PowerShell)
+curl -d "next" "https://ntfy.sh/$TCHUCO_TOPIC"              (macOS)
 ```
 
-O script deve mostrar algo assim:
+The script should print something like this:
 
 ```
-12:00:00 tópico tchu... em https://ntfy.sh (dry-run: nenhuma tecla é apertada)
-12:00:00 conectado; aguardando comandos (Ctrl+C sai)
-12:00:07 next -> seta direita
+12:00:00 topic tchu... on https://ntfy.sh (dry-run: no keys are pressed)
+12:00:00 connected; waiting for commands (Ctrl+C quits)
+12:00:07 next -> right arrow
 ```
 
-Para valer, rode sem o `--dry-run` e deixe a apresentação em primeiro plano,
-em modo de exibição. `Ctrl+C` encerra.
+For the real thing, run it without `--dry-run` and keep the presentation in
+the foreground, in slideshow mode. `Ctrl+C` quits.
 
-Também funciona `python desktop/tchuco.py seu-topico`, mas assim o tópico fica
-visível no terminal; prefira a variável de ambiente se a tela estiver sendo
-projetada.
+`python desktop/tchuco.py your-topic` also works, but then the topic is
+visible in the terminal; prefer the environment variable if the screen is
+being projected.
 
-**macOS:** na primeira execução, autorize o terminal em *Ajustes do Sistema →
-Privacidade e Segurança → Acessibilidade*; sem isso o sistema descarta as
-teclas em silêncio. Se aparecer `CERTIFICATE_VERIFY_FAILED` (Python instalado
-pelo python.org), rode uma vez o `Install Certificates.command` que fica na
-pasta do Python em *Aplicativos*.
+**macOS:** on the first run, allow the terminal under *System Settings →
+Privacy & Security → Accessibility*; without it the system silently drops the
+key presses. If you get `CERTIFICATE_VERIFY_FAILED` (Python installed from
+python.org), run the `Install Certificates.command` found in the Python folder
+under *Applications* once.
 
-### 4. Instale o Connect IQ SDK
+### 4. Install the Connect IQ SDK
 
-1. Instale o Java 11 ou mais novo.
-2. Em <https://developer.garmin.com/connect-iq/sdk/>, baixe o **SDK Manager**,
-   extraia em uma pasta e abra.
-3. Aceite o contrato e faça login com a sua conta Garmin.
-4. Na aba **SDK**, baixe a versão mais recente e marque-a como SDK ativo.
-5. Na aba **Devices**, baixe só o **Forerunner® 955 / Solar**. Todos os
-   dispositivos juntos, com as fontes, ocupam cerca de 1,5 GB.
-6. (Opcional) No VS Code, instale a extensão **Monkey C** e rode
+1. Install Java 11 or newer.
+2. From <https://developer.garmin.com/connect-iq/sdk/>, download the **SDK
+   Manager**, extract it to a folder and open it.
+3. Accept the agreement and sign in with your Garmin account.
+4. On the **SDK** tab, download the latest version and set it as the active
+   SDK.
+5. On the **Devices** tab, download only **Forerunner® 955 / Solar**. All the
+   devices together, with their fonts, take about 1.5 GB.
+6. (Optional) In VS Code, install the **Monkey C** extension and run
    *Monkey C: Verify Installation*.
 
-### 5. Gere a chave de desenvolvedor
+### 5. Generate the developer key
 
-O compilador assina o app com uma chave RSA de 4096 bits. Ela é sua e não vai
-para o git.
+The compiler signs the app with a 4096-bit RSA key. It is yours and never
+goes into git.
 
 ```
 openssl genrsa -out watch/developer_key.pem 4096
 openssl pkcs8 -topk8 -inform PEM -outform DER -in watch/developer_key.pem -out watch/developer_key.der -nocrypt
 ```
 
-No Windows o `openssl` vem junto com o Git
-(`C:\Program Files\Git\usr\bin\openssl.exe`). Outra opção é o comando
-*Monkey C: Generate a Developer Key* do VS Code.
+On Windows, `openssl` ships with Git
+(`C:\Program Files\Git\usr\bin\openssl.exe`). Another option is the VS Code
+command *Monkey C: Generate a Developer Key*.
 
-### 6. Informe o tópico ao app
+### 6. Give the app your topic
 
-Copie o arquivo de exemplo e troque o valor de `TOPICO` pelo tópico do
-passo 2:
+Copy the example file and replace the value of `TOPIC` with the topic from
+step 2:
 
 ```
 # Windows (PowerShell)
-Copy-Item watch\Config.mc.exemplo watch\source\Config.mc
+Copy-Item watch\Config.mc.example watch\source\Config.mc
 
 # macOS
-cp watch/Config.mc.exemplo watch/source/Config.mc
+cp watch/Config.mc.example watch/source/Config.mc
 ```
 
-`watch/source/Config.mc` é ignorado pelo git e é o único arquivo com a URL
-base e o tópico. Não crie outra cópia com extensão `.mc` dentro de `watch/`:
-o compilador junta todos os `.mc` da pasta.
+`watch/source/Config.mc` is ignored by git and is the only file with the base
+URL and the topic. Do not create another copy with the `.mc` extension inside
+`watch/`: the compiler picks up every `.mc` in the folder.
 
-### 7. Compile
+### 7. Build
 
 ```
 # Windows (PowerShell)
@@ -225,15 +221,16 @@ SDK="$(cat "$HOME/Library/Application Support/Garmin/ConnectIQ/current-sdk.cfg")
 "$SDK/bin/monkeyc" -d fr955 -f watch/monkey.jungle -o watch/bin/TchucoTchuco.prg -y watch/developer_key.der -w -r
 ```
 
-- `fr955` vale para o Forerunner 955 e para o 955 Solar.
-- `-w` mostra os avisos do compilador; a checagem de tipos estrita já está
-  ligada no `watch/monkey.jungle`.
-- `-r` gera a versão enxuta, que é a que vai para o relógio. Sem o `-r` sai a
-  versão de depuração, que também roda no simulador.
+- `fr955` covers the Forerunner 955 and the 955 Solar.
+- `-w` shows the compiler warnings; strict type checking is already turned on
+  in `watch/monkey.jungle`.
+- `-r` builds the lean release version, which is the one that goes on the
+  watch. Without `-r` you get the debug version, which also runs in the
+  simulator.
 
-Com o SDK 9.3.0 o resultado esperado é `BUILD SUCCESSFUL`, sem avisos.
+With SDK 9.3.0 the expected result is `BUILD SUCCESSFUL`, with no warnings.
 
-### 8. Teste no simulador (opcional)
+### 8. Try it in the simulator (optional)
 
 ```
 # Windows (PowerShell)
@@ -245,383 +242,389 @@ Com o SDK 9.3.0 o resultado esperado é `BUILD SUCCESSFUL`, sem avisos.
 "$SDK/bin/monkeydo" watch/bin/TchucoTchuco.prg fr955
 ```
 
-O primeiro comando abre o simulador; o segundo carrega o app e fica mostrando
-o que ele imprime (por exemplo `envio de next: 200` e `confirmado em 2063 ms`).
-Clique com o mouse nos botões do relógio desenhado na tela. O simulador faz as
-requisições HTTPS de verdade a partir do computador, então o caminho inteiro é
-testado, menos o Bluetooth e o celular.
+The first command opens the simulator; the second loads the app and keeps
+showing what it prints (for example `sent next: 200` and
+`confirmed in 2063 ms`). Click the buttons of the watch drawn on screen with
+the mouse. The simulator makes real HTTPS requests from the computer, so the
+whole path is exercised, except for Bluetooth and the phone.
 
-Úteis no simulador:
+Useful in the simulator:
 
-- *Settings → Connection Type → BLE → Not Connected*: simula o celular
-  desconectado (o app mostra "SEM CELULAR", código -104).
-- *File → View HTTP Traffic*: mostra as requisições feitas pelo app.
+- *Settings → Connection Type → BLE → Not Connected*: simulates a
+  disconnected phone (the app shows "NO PHONE", code -104).
+- *File → View HTTP Traffic*: shows the requests made by the app.
 
-### 9. Copie para o relógio
+### 9. Copy it to the watch
 
-1. Conecte o relógio no USB.
-2. Copie `watch/bin/TchucoTchuco.prg` para a pasta `GARMIN/APPS` do relógio,
-   por cima da versão anterior, se houver. O 955 aparece como dispositivo de
-   mídia (MTP): no Windows ele surge no Explorador de Arquivos; no macOS é
-   preciso um programa de MTP, como o OpenMTP, e o Garmin Express precisa
-   estar fechado.
-3. Desconecte o cabo. O app aparece na lista de atividades e apps.
+1. Connect the watch over USB.
+2. Copy `watch/bin/TchucoTchuco.prg` to the watch's `GARMIN/APPS` folder,
+   over the previous version, if there is one. The 955 shows up as a media
+   device (MTP): on Windows it appears in File Explorer; on macOS you need an
+   MTP program, such as OpenMTP, and Garmin Express must be closed.
+3. Unplug the cable. The app shows up in the list of activities and apps.
 
-Para ver os `System.println` do app no relógio, crie antes um arquivo vazio
-com o mesmo nome do `.prg` na pasta de logs: `GARMIN/APPS/LOGS/TchucoTchuco.TXT`.
+To see the app's `System.println` output on the watch, first create an empty
+file with the same name as the `.prg` in the logs folder:
+`GARMIN/APPS/LOGS/TchucoTchuco.TXT`.
 
-### 10. Apresente
+### 10. Present
 
-1. No computador, rode o script (sem `--dry-run`) e ponha a apresentação em
-   primeiro plano, em modo de exibição.
-2. Deixe o celular por perto, com Bluetooth e internet, e o Garmin Connect
-   aberto.
-3. No relógio, abra o Tchuco Tchuco, escolha LIVRE e aperte START: o slide
-   avança, e o relógio vibra e mostra "OK >>".
+1. On the computer, run the script (without `--dry-run`) and put the
+   presentation in the foreground, in slideshow mode.
+2. Keep the phone nearby, with Bluetooth and internet on and Garmin Connect
+   open.
+3. On the watch, open Tchuco Tchuco, choose FREE and press START: the slide
+   advances, and the watch vibrates and shows "OK >>".
 
-Se algo não responder, veja [Solução de problemas](#solução-de-problemas).
+If something does not respond, see [Troubleshooting](#troubleshooting).
 
-## Como usar
+## Using the app
 
-O app é operado só pelos botões. Toques e deslizes na tela são ignorados, e o
-app não abre telas do sistema (que aceitariam toque).
+The app is operated with the buttons only. Taps and swipes are ignored, and
+the app never opens system screens (which would accept touch).
 
-### Menu inicial
+### Start menu
 
-Ao abrir, o app mostra quatro opções; a linha de baixo da tela explica a que
-está destacada. UP e DOWN escolhem, START confirma e BACK fecha o app.
+When it opens, the app shows four options; the bottom line of the screen
+explains the highlighted one. UP and DOWN choose, START confirms and BACK
+closes the app.
 
-| Opção | O que faz |
+| Option | What it does |
 |---|---|
-| LIVRE | vai direto para o passador de slides, sem limite de tempo |
-| CRONÔMETRO | pergunta o tempo total e abre a apresentação com a contagem regressiva já correndo |
-| AVISO: NÃO / N MIN | liga ou desliga os avisos de tempo e define o intervalo; vale para os dois modos |
-| LUZ: LIGADA / AUTO | START alterna entre manter a luz do visor sempre acesa e deixar o relógio decidir |
+| FREE | goes straight to the slide clicker, with no time limit |
+| TIMER | asks for the total time and opens the presentation with the countdown already running |
+| ALERT: OFF / N MIN | turns the time alerts on or off and sets the interval; applies to both modes |
+| LIGHT: ON / AUTO | START toggles between keeping the backlight always on and letting the watch decide |
 
-O menu abre no último modo usado, e todas as escolhas ficam guardadas no
-relógio.
+The menu opens on the last mode used, and every choice is stored on the
+watch.
 
-### Ajustes
+### Settings
 
-- **Tempo total** (ao escolher CRONÔMETRO): UP aumenta e DOWN diminui (o "+"
-  e o "-" na tela ficam ao lado desses botões); START começa a apresentação.
-- **Avisos** (ao escolher AVISO): primeiro a pergunta NÃO ou SIM; em SIM,
-  aparece **aviso a cada**, ajustado do mesmo jeito, e START grava.
+- **Total time** (when you choose TIMER): UP increases and DOWN decreases (the
+  "+" and "-" on screen sit next to those buttons); START begins the
+  presentation.
+- **Alerts** (when you choose ALERT): first the NO or YES question; with YES,
+  **alert every** comes next, adjusted the same way, and START saves it.
 
-Os minutos vão de 1 em 1 até 30, de 5 em 5 até 60 e de 15 em 15 até 180.
-BACK volta uma tela sem gravar.
+Minutes go by 1 up to 30, by 5 up to 60 and by 15 up to 180. BACK goes back
+one screen without saving.
 
-No cronômetro o aviso precisa caber no tempo: o intervalo tem de ser menor que
-o tempo total. Quando não cabe (2 minutos de tempo com aviso a cada 5, por
-exemplo), a tela do tempo total mostra na hora a faixa branca "aviso 5 não
-cabe" e o START fica travado: o relógio vibra e a faixa passa a dizer "aumente
-o tempo". Para seguir, aumente o tempo total até caber, ou volte com BACK e
-mude ou desligue o aviso. O menu mostra o mesmo "aviso 5 não cabe" ao destacar
-CRONÔMETRO. No modo livre não há esse limite.
+In timer mode the alert has to fit in the time: the interval must be shorter
+than the total time. When it does not fit (2 minutes of time with an alert
+every 5, for example), the total time screen immediately shows the white band
+"alert 5 won't fit" and START stays blocked: the watch vibrates and the band
+changes to "increase the time". To move on, increase the total time until the
+alert fits, or go back with BACK and change the alert or turn it off. The
+menu shows the same "alert 5 won't fit" when TIMER is highlighted. Free mode
+has no such limit.
 
-![Aviso que não cabe no tempo total](docs/aviso-nao-cabe.png)
+![An alert that does not fit in the total time](docs/alert-does-not-fit.png)
 
-### Apresentação
+### Presentation
 
-| Botão | Ação |
+| Button | Action |
 |---|---|
-| START (superior direito) | próximo slide (`next`) |
-| DOWN (inferior esquerdo, o da música) | slide anterior (`prev`) |
-| BACK (inferior direito) | mostra "BACK DE NOVO"; um segundo BACK em 3 s volta para o menu |
-| UP (meio esquerdo) | nada |
+| START (top right) | next slide (`next`) |
+| DOWN (bottom left, the music one) | previous slide (`prev`) |
+| BACK (bottom right) | shows "BACK AGAIN"; a second BACK within 3 s returns to the menu |
+| UP (middle left) | nothing |
 
-A tela mostra o tempo, grande, e o contador de slides.
+The screen shows the time, large, and the slide counter.
 
-- **Modo livre:** cronômetro branco que conta para cima a partir do primeiro
-  slide passado.
-- **Cronômetro:** contagem regressiva que começa assim que a apresentação
-  abre, sem precisar passar slide. O número vai do verde ao vermelho em sete
-  tons conforme o tempo acaba. Quando o tempo acaba são cinco vibrações
-  fortes, e o número passa a mostrar em vermelho quanto tempo passou do
-  limite ("+00:12").
-- **Avisos de tempo** (opcionais, nos dois modos): o meio da tela acende por
-  3 segundos e o relógio dá três vibrações suaves. No modo livre isso
-  acontece a cada intervalo escolhido; no cronômetro, quando faltam múltiplos
-  do intervalo (faltam 15, 10, 5 minutos, por exemplo).
+- **Free mode:** a white stopwatch that counts up from the first slide
+  change.
+- **Timer:** a countdown that starts as soon as the presentation opens, with
+  no need to change a slide. The number goes from green to red in seven
+  shades as the time runs out. When the time is up there are five strong
+  vibrations, and the number starts showing in red how far over the limit you
+  are ("+00:12").
+- **Time alerts** (optional, in both modes): the middle of the screen lights
+  up for 3 seconds and the watch gives three soft vibrations. In free mode
+  that happens at every chosen interval; in timer mode, when multiples of the
+  interval remain (15, 10, 5 minutes left, for example).
 
-O resultado de cada comando aparece numa faixa branca com letra preta no topo
-(sempre a mesma cor, para não se confundir com as cores do tempo) e some
-sozinho: 3 segundos depois de um "OK" e 10 segundos depois de uma falha.
+The result of each command shows up in a white banner with black text at the
+top (always the same color, so it is not mistaken for the time colors) and
+goes away by itself: 3 seconds after an "OK" and 10 seconds after a failure.
 
-| Aviso | Significado |
+| Banner | Meaning |
 |---|---|
-| "ENVIANDO" | o comando está indo para o ntfy |
-| "CONFIRMANDO" | o ntfy recebeu; esperando o computador responder |
-| "OK >>" / "<< OK" | o computador executou; em cima, quanto tempo levou |
-| "OK x2" | dois (ou mais) toques seguidos foram executados |
-| "SEM PC" | o ntfy recebeu, mas nenhum computador respondeu |
-| "SEM CELULAR" / "SEM INTERNET" / "ERRO HTTP" | o comando não saiu; em cima, o código do erro |
+| "SENDING" | the command is on its way to ntfy |
+| "CONFIRMING" | ntfy got it; waiting for the computer to answer |
+| "OK >>" / "<< OK" | the computer ran it; above, how long it took |
+| "OK x2" | two (or more) quick presses were run |
+| "NO PC" | ntfy got it, but no computer answered |
+| "NO PHONE" / "NO INTERNET" / "HTTP ERROR" | the command did not go out; above, the error code |
 
-| Vibração | Quando |
+| Vibration | When |
 |---|---|
-| uma suave e curta (50 ms) por comando | o computador confirmou; dois toques seguidos dão duas |
-| uma suave e mais longa (300 ms) | o envio falhou, o computador não respondeu ou o START estava travado |
-| três suaves, uma por segundo | aviso de tempo |
-| cinco fortes (500 ms), uma por segundo | o tempo acabou |
+| one soft, short one (50 ms) per command | the computer confirmed; two quick presses give two |
+| one soft, longer one (300 ms) | the send failed, the computer did not answer or START was blocked |
+| three soft ones, one per second | time alert |
+| five strong ones (500 ms), one per second | the time is up |
 
-## Notificações durante a apresentação
+## Notifications during a presentation
 
-O app não consegue esconder as notificações do relógio. A API do Connect IQ
-não tem como bloqueá-las nem como ligar o Não Perturbe; ela só permite ler se
-ele está ligado. Se uma mensagem chegar no meio da apresentação, o relógio
-mostra o aviso dele por cima do app, e enquanto esse aviso está na tela os
-botões podem agir sobre ele em vez de passar o slide.
+The app cannot hide the watch's notifications. The Connect IQ API has no way
+to block them or to turn on Do Not Disturb; it only lets an app read whether
+it is on. If a message arrives in the middle of the presentation, the watch
+shows its own alert on top of the app, and while that alert is on screen the
+buttons may act on it instead of changing the slide.
 
-O jeito é silenciar as notificações no próprio relógio antes de começar:
+The way out is to silence notifications on the watch itself before you start:
 
-- **Não Perturbe.** Segure LIGHT para abrir o menu de controles e ative o Não
-  Perturbe. Segundo o [manual do 955][manual-controles], esse modo escurece a
-  tela e desliga alertas e notificações. Confira no seu relógio se as
-  vibrações do Tchuco Tchuco e a luz do visor continuam como você espera com
-  ele ligado.
-- **Desligar as notificações do celular.** No menu do relógio, em
-  *Conectividade → Telefone → Notificações inteligentes → Estado*
-  ([*Connectivity → Phone → Smart Notifications → Status*][manual-notificacoes]
-  no relógio em inglês), escolha desligado e religue depois. Os nomes mudam
-  um pouco conforme o idioma e a versão do relógio.
+- **Do Not Disturb.** Hold LIGHT to open the controls menu and turn on Do Not
+  Disturb. According to the [955 manual][manual-controls], this mode dims the
+  screen and disables alerts and notifications. Check on your watch that
+  Tchuco Tchuco's vibrations and the backlight still behave the way you
+  expect with it on.
+- **Turning off phone notifications.** In the watch menu, under
+  [*Connectivity → Phone → Smart Notifications → Status*][manual-notifications],
+  choose off, and turn it back on afterwards. The names change a little with
+  the watch's language and software version.
 
-[manual-controles]: https://www8.garmin.com/manuals/webhelp/GUID-9D99A9D4-467A-4F1A-A0EA-023184FEA3DD/EN-US/GUID-700E76C4-F7E2-4984-8199-D59D6A31DFB9.html
-[manual-notificacoes]: https://www8.garmin.com/manuals/webhelp/GUID-9D99A9D4-467A-4F1A-A0EA-023184FEA3DD/EN-US/GUID-599D739A-21A7-4EF2-98F4-29258D407B47.html
+[manual-controls]: https://www8.garmin.com/manuals/webhelp/GUID-9D99A9D4-467A-4F1A-A0EA-023184FEA3DD/EN-US/GUID-700E76C4-F7E2-4984-8199-D59D6A31DFB9.html
+[manual-notifications]: https://www8.garmin.com/manuals/webhelp/GUID-9D99A9D4-467A-4F1A-A0EA-023184FEA3DD/EN-US/GUID-599D739A-21A7-4EF2-98F4-29258D407B47.html
 
-## Solução de problemas
+## Troubleshooting
 
-| O que aparece | Causa provável | O que fazer |
+| What you see | Likely cause | What to do |
 |---|---|---|
-| "SEM CELULAR" (código -104) | o relógio não está conectado ao celular | ligue o Bluetooth, aproxime o celular e abra o Garmin Connect |
-| "SEM INTERNET" (código zero ou negativo) | o celular não chegou ao ntfy.sh | confira a internet do celular |
-| "ERRO HTTP" com o código 429 | limite gratuito do ntfy.sh | espere alguns minutos (veja [Limitações conhecidas](#limitações-conhecidas)) |
-| "SEM PC" | o ntfy recebeu, mas nenhum computador confirmou | confira se o script está rodando, com internet e com o mesmo tópico do relógio |
-| "OK" no relógio, mas o slide não muda | a tecla foi para outra janela | deixe a apresentação em primeiro plano; no macOS, autorize o terminal em Acessibilidade; no Windows, se o programa da apresentação roda como administrador, rode o script como administrador também |
-| o script pede para informar o tópico | faltou o tópico | defina `TCHUCO_TOPICO` ou passe o tópico como argumento |
-| o script mostra `conexão caiu` e `reconectando` | o computador ficou sem internet | ele tenta de novo sozinho, com espera de até 15 segundos |
-| `CERTIFICATE_VERIFY_FAILED` no macOS | Python do python.org sem os certificados | rode o `Install Certificates.command` da pasta do Python |
-| o compilador reclama de `TOPICO` redefinido | há mais de um `.mc` de configuração dentro de `watch/` | deixe só o `watch/source/Config.mc` |
-| o compilador não encontra `Config` | faltou criar `watch/source/Config.mc` | refaça o passo 6 |
-| START não começa o cronômetro | o aviso não cabe no tempo total | aumente o tempo, ou mude ou desligue o aviso |
-| o app não aparece no relógio | o `.prg` foi para a pasta errada | copie para `GARMIN/APPS` |
+| "NO PHONE" (code -104) | the watch is not connected to the phone | turn on Bluetooth, bring the phone closer and open Garmin Connect |
+| "NO INTERNET" (code zero or negative) | the phone could not reach ntfy.sh | check the phone's internet connection |
+| "HTTP ERROR" with code 429 | ntfy.sh's free rate limit | wait a few minutes (see [Known limitations](#known-limitations)) |
+| "NO PC" | ntfy got the command, but no computer confirmed it | check that the script is running, online and using the same topic as the watch |
+| "OK" on the watch, but the slide does not change | the key went to another window | keep the presentation in the foreground; on macOS, allow the terminal under Accessibility; on Windows, if the slide program runs as administrator, run the script as administrator too |
+| the script asks for the topic | the topic is missing | set `TCHUCO_TOPIC` or pass the topic as an argument |
+| the script shows `connection lost` and `reconnecting` | the computer went offline | it retries by itself, waiting up to 15 seconds |
+| `CERTIFICATE_VERIFY_FAILED` on macOS | python.org Python without its certificates | run `Install Certificates.command` from the Python folder |
+| the compiler complains that `TOPIC` is redefined | there is more than one configuration `.mc` inside `watch/` | keep only `watch/source/Config.mc` |
+| the compiler cannot find `Config` | `watch/source/Config.mc` was never created | redo step 6 |
+| START does not begin the timer | the alert does not fit in the total time | increase the time, or change the alert or turn it off |
+| the app does not show up on the watch | the `.prg` went to the wrong folder | copy it to `GARMIN/APPS` |
 
-## Roteiro de teste
+## Test plan
 
-**1. Só o computador, com curl**
+**1. Computer only, with curl**
 
 ```
 python desktop/tchuco.py --dry-run
 ```
 
-Em outro terminal:
+In another terminal:
 
 ```
-curl.exe -d "next" "https://ntfy.sh/$env:TCHUCO_TOPICO"      (PowerShell)
-curl -d "prev" "https://ntfy.sh/$TCHUCO_TOPICO"              (macOS)
+curl.exe -d "next" "https://ntfy.sh/$env:TCHUCO_TOPIC"      (PowerShell)
+curl -d "prev" "https://ntfy.sh/$TCHUCO_TOPIC"              (macOS)
 ```
 
-O script deve imprimir `next -> seta direita` e `prev -> seta esquerda`. Uma
-mensagem publicada antes de o script conectar não pode aparecer. Para ver as
-confirmações que ele publicou:
+The script should print `next -> right arrow` and `prev -> left arrow`. A
+message published before the script connected must not show up. To see the
+confirmations it published:
 
 ```
-curl.exe "https://ntfy.sh/$env:TCHUCO_TOPICO-ack/raw?poll=1&since=1m"
+curl.exe "https://ntfy.sh/$env:TCHUCO_TOPIC-ack/raw?poll=1&since=1m"
 ```
 
-**2. Computador apertando teclas**
+**2. Computer pressing keys**
 
-Abra a apresentação em modo de exibição, rode o script sem `--dry-run` e
-repita os comandos `curl`: o slide deve avançar e voltar.
+Open the presentation in slideshow mode, run the script without `--dry-run`
+and repeat the `curl` commands: the slide should go forward and back.
 
-**3. Simulador**
+**3. Simulator**
 
-Com o script rodando em `--dry-run`, abra o app no simulador (passo 8):
+With the script running in `--dry-run`, open the app in the simulator
+(step 8):
 
-- no menu, UP e DOWN mudam a opção destacada; START em LIVRE abre a
-  apresentação com o cronômetro em 00:00;
-- START: o terminal do `monkeydo` mostra `envio de next: 200` e depois
-  `confirmado em ... ms (1)`; o script imprime `next -> seta direita`; a faixa
-  branca mostra "ENVIANDO", "CONFIRMANDO" e "OK >>", e some em 3 segundos;
-- dois START seguidos: `confirmado em ... ms (2)` e "OK x2";
-- DOWN: `prev`, e o contador desce; UP não faz nada;
-- com o script fechado: depois de três consultas, "SEM PC";
-- com *BLE → Not Connected*: "SEM CELULAR";
-- clicar ou arrastar o mouse sobre a tela do relógio não faz nada;
-- BACK mostra "BACK DE NOVO"; outro BACK em 3 s volta para o menu;
-- no menu, AVISO: escolha SIM e um intervalo curto; depois CRONÔMETRO, com um
-  tempo total maior que o intervalo: a contagem começa sozinha, o número
-  começa verde, acende nos avisos, fica vermelho e, no fim, passa a mostrar
-  "+MM:SS";
-- com AVISO em NÃO, o cronômetro só dá o alarme do fim; no modo LIVRE com
-  AVISO ligado, o meio da tela acende a cada intervalo depois do primeiro
-  START;
-- com AVISO a cada 5 minutos, escolha CRONÔMETRO e baixe o tempo total: com 5
-  ou menos aparece a faixa "aviso 5 não cabe", e START não começa (a faixa
-  passa a dizer "aumente o tempo"); com 6 volta "START começa";
-- no menu, BACK fecha o app.
+- on the menu, UP and DOWN change the highlighted option; START on FREE opens
+  the presentation with the stopwatch at 00:00;
+- START: the `monkeydo` terminal shows `sent next: 200` and then
+  `confirmed in ... ms (1)`; the script prints `next -> right arrow`; the
+  white banner shows "SENDING", "CONFIRMING" and "OK >>", and goes away in 3
+  seconds;
+- two quick STARTs: `confirmed in ... ms (2)` and "OK x2";
+- DOWN: `prev`, and the counter goes down; UP does nothing;
+- with the script closed: after three polls, "NO PC";
+- with *BLE → Not Connected*: "NO PHONE";
+- clicking or dragging the mouse over the watch screen does nothing;
+- BACK shows "BACK AGAIN"; another BACK within 3 s returns to the menu;
+- on the menu, ALERT: choose YES and a short interval; then TIMER, with a
+  total time longer than the interval: the countdown starts by itself, the
+  number starts green, lights up on the alerts, turns red and, at the end,
+  starts showing "+MM:SS";
+- with ALERT set to OFF, the timer only gives the end alarm; in FREE mode
+  with ALERT on, the middle of the screen lights up at every interval after
+  the first START;
+- with ALERT every 5 minutes, choose TIMER and lower the total time: at 5 or
+  less the band "alert 5 won't fit" appears and START does not begin (the
+  band changes to "increase the time"); at 6, "START to begin" is back;
+- on the menu, BACK closes the app.
 
-**4. Relógio de verdade**
+**4. Real watch**
 
-Com o celular por perto, Bluetooth ligado e o Garmin Connect aberto:
+With the phone nearby, Bluetooth on and Garmin Connect open:
 
-- no modo livre, START avança e DOWN volta, com uma vibração curta quando o
-  computador confirma; anote o tempo que aparece em cima do "OK";
-- dois toques seguidos: duas vibrações e "OK x2";
-- com o script fechado: "SEM PC" e vibração mais longa;
-- com o Bluetooth do celular desligado: "SEM CELULAR";
-- com o celular em modo avião e Bluetooth ligado: uma mensagem de falha com o
-  código do erro;
-- toques e deslizes na tela não fazem nada;
-- com LUZ: LIGADA, a luz do visor fica acesa o tempo todo;
-- com AVISO a cada 1 minuto e CRONÔMETRO de 2 minutos, a contagem começa
-  sozinha; sinta as três vibrações suaves e as cinco fortes do fim;
-- com o Não Perturbe ligado, confira se as vibrações do app continuam
-  chegando;
-- deixe o app aberto pelo tempo de uma apresentação e confira se ele
-  continua na tela.
+- in free mode, START goes forward and DOWN goes back, with a short vibration
+  when the computer confirms; note the time shown above the "OK";
+- two quick presses: two vibrations and "OK x2";
+- with the script closed: "NO PC" and a longer vibration;
+- with the phone's Bluetooth off: "NO PHONE";
+- with the phone in airplane mode and Bluetooth on: a failure message with
+  the error code;
+- taps and swipes on the screen do nothing;
+- with LIGHT: ON, the backlight stays on the whole time;
+- with ALERT every 1 minute and a TIMER of 2 minutes, the countdown starts by
+  itself; feel the three soft vibrations and the five strong ones at the end;
+- with Do Not Disturb on, check that the app's vibrations still come through;
+- leave the app open for as long as a presentation takes and check that it
+  stays on screen.
 
-## Por dentro
+## Under the hood
 
-### Envio do comando
+### Sending the command
 
-O plano inicial era um `POST` com o texto `next` para `https://ntfy.sh/<tópico>`.
-No fr955 isso não é possível, e o formato escolhido foi o seguinte:
+The original plan was a `POST` with the text `next` to
+`https://ntfy.sh/<topic>`. That is not possible on the fr955, and the format
+chosen was this one:
 
-- **Requisição:** `POST https://ntfy.sh/` com `Content-Type: application/json`
-  e o corpo `{"topic": "<tópico>", "message": "next"}` (o "Publish as JSON" do
-  ntfy, que exige a URL raiz, e não a URL do tópico).
-- **Resposta:** o ntfy devolve a mensagem publicada como objeto JSON, com
+- **Request:** `POST https://ntfy.sh/` with `Content-Type: application/json`
+  and the body `{"topic": "<topic>", "message": "next"}` (ntfy's "Publish as
+  JSON", which requires the root URL, not the topic URL).
+- **Response:** ntfy returns the published message as a JSON object, with
   `Content-Type: application/json`.
 
-Motivos:
+Why:
 
-- O `Communications.makeWebRequest` recebe os dados como um dicionário e os
-  serializa como JSON ou como formulário. Corpo de texto puro só existe com a
-  opção `:body`, disponível a partir do Connect IQ 6.0.3; o 955 está na API 5.2.
-- Sem informar o `Content-Type`, um `POST` sai como
-  `application/x-www-form-urlencoded`, e o ntfy usa o corpo inteiro como texto
-  da mensagem: chegaria `message=next` em vez de `next`.
-- Com `:responseType => HTTP_RESPONSE_CONTENT_TYPE_JSON`, o Connect IQ exige
-  que a resposta venha como `application/json` com um JSON válido; senão o
-  callback recebe o erro -400 ou -1002 mesmo com a mensagem publicada.
+- `Communications.makeWebRequest` takes the data as a dictionary and
+  serializes it as JSON or as a form. A plain-text body only exists with the
+  `:body` option, available from Connect IQ 6.0.3 on; the 955 is on API 5.2.
+- Without a `Content-Type`, a `POST` goes out as
+  `application/x-www-form-urlencoded`, and ntfy uses the whole body as the
+  message text: `message=next` would arrive instead of `next`.
+- With `:responseType => HTTP_RESPONSE_CONTENT_TYPE_JSON`, Connect IQ requires
+  the response to be `application/json` with valid JSON; otherwise the
+  callback gets error -400 or -1002 even though the message was published.
 
-Conferido com `curl` no ntfy.sh:
+Checked with `curl` against ntfy.sh:
 
-| Requisição | Mensagem publicada |
+| Request | Published message |
 |---|---|
-| JSON na URL raiz (formato usado) | `next` |
-| Formulário `message=next` na URL do tópico | `message=next` |
-| JSON `{"message":"next"}` na URL do tópico | `{"message":"next"}` |
+| JSON to the root URL (the format used) | `next` |
+| Form `message=next` to the topic URL | `message=next` |
+| JSON `{"message":"next"}` to the topic URL | `{"message":"next"}` |
 
-### Confirmação pelo computador
+### Confirmation from the computer
 
-O ntfy aceitar o comando não quer dizer que existe um computador ouvindo. Por
-isso, depois de apertar a tecla, o script publica o id do comando no tópico
-`<tópico>-ack`, e o relógio consulta esse tópico:
+ntfy accepting the command does not mean a computer is listening. So, after
+pressing the key, the script publishes the command's id to the `<topic>-ack`
+topic, and the watch polls that topic:
 
-- **Requisição:** `GET https://ntfy.sh/<tópico>-ack/raw?poll=1&since=30s`.
-- **Resposta:** texto puro (`text/plain`), um id por linha, que o Connect IQ
-  aceita com `HTTP_RESPONSE_CONTENT_TYPE_TEXT_PLAIN`. A mesma consulta em
-  JSON não serve: ela vem como `application/x-ndjson`.
+- **Request:** `GET https://ntfy.sh/<topic>-ack/raw?poll=1&since=30s`.
+- **Response:** plain text (`text/plain`), one id per line, which Connect IQ
+  accepts with `HTTP_RESPONSE_CONTENT_TYPE_TEXT_PLAIN`. The same query in JSON
+  does not work: it comes back as `application/x-ndjson`.
 
-O relógio espera 0,7 s, consulta e repete até 3 vezes. Se o id aparecer,
-mostra "OK"; se não, "SEM PC". Um clique novo tem prioridade: ele é enviado
-antes de terminar a conferência do anterior, e a conferência passa a valer
-para o último comando.
+The watch waits 0.7 s, polls and repeats up to 3 times. If the id shows up,
+it displays "OK"; otherwise, "NO PC". A new press takes priority: it is sent
+before the previous confirmation finishes, and the confirmation then applies
+to the last command.
 
-Custo: o "OK" aparece depois. No simulador, com o ntfy.sh real, a confirmação
-levou de 2,0 a 3,5 s, contra 0,7 s do envio sozinho; o slide em si muda no
-mesmo instante de antes. Parte dessa espera é do próprio ntfy.sh, que leva de
-0,1 a 1,4 s para tornar uma mensagem publicada visível nas consultas.
+The cost: "OK" shows up later. In the simulator, against the real ntfy.sh,
+the confirmation took 2.0 to 3.5 s, versus 0.7 s for the send alone; the
+slide itself changes at the same moment as before. Part of that wait comes
+from ntfy.sh itself, which takes 0.1 to 1.4 s to make a published message
+visible to polls.
 
-### O script do computador
+### The computer script
 
-O script só processa mensagens publicadas depois que ele conectou, reconecta
-sozinho se a conexão cair, confirma cada comando executado e só aceita `next`
-e `prev`. O tópico nunca aparece inteiro no terminal: o log mostra só os
-quatro primeiros caracteres.
+The script only processes messages published after it connected, reconnects
+by itself if the connection drops, confirms every command it runs and only
+accepts `next` and `prev`. The topic never appears in full in the terminal:
+the log shows only its first four characters.
 
-## Limitações conhecidas
+## Known limitations
 
-- **Latência.** Cada clique passa por Bluetooth, celular, internet e ntfy.
-  Não é instantâneo e varia com o celular e a rede; se o Garmin Connect
-  estiver "dormindo" no celular, o primeiro clique pode demorar mais.
-- **O "OK" demora mais que o slide.** O slide muda quando o comando chega ao
-  computador; o "OK" só aparece depois da confirmação, alguns segundos mais
-  tarde.
-- **Depende de internet nos dois lados** e do ntfy.sh estar no ar. Não há
-  modo offline.
-- **Envio pendurado.** Quem decide quando desistir de uma requisição é o
-  sistema, não o app. No simulador, um servidor que não responde levou 21
-  segundos para virar erro; nesse intervalo a faixa fica em "ENVIANDO".
-- **Fila de um comando.** Enquanto uma requisição está em andamento, só o
-  último clique fica guardado; três cliques muito rápidos viram dois comandos.
-- **O contador de slides é do relógio.** Ele soma os comandos confirmados pelo
-  computador. Começa em 1 e não sabe quantos slides existem.
-- **Limites do ntfy.sh gratuito** (por endereço IP): 250 mensagens por dia,
-  rajada de 60 requisições e depois uma a cada 5 segundos, mensagens de até
-  4.096 bytes, 30 conexões simultâneas. Cada clique custa ao celular um envio
-  e de uma a três consultas, e ao computador um envio de confirmação. Se o
-  celular e o computador saem para a internet pelo mesmo endereço, os dois
-  dividem o limite, que cai para cerca de 125 cliques por dia. Ao estourar, o
-  relógio mostra "ERRO HTTP" com o código 429.
-- **O tópico é público.** Quem souber o nome pode publicar (e apertar as setas
-  no seu computador), escutar ou forjar confirmações. Troque o tópico se ele
-  vazar. O script só aceita `next` e `prev`.
-- **Cliques feitos durante uma queda do computador são descartados**, de
-  propósito, para os slides não pularem sozinhos na reconexão. As mensagens
-  ficam 12 horas no cache do ntfy, mas o script nunca lê o cache.
-- **Queda silenciosa.** Se a conexão do computador morrer sem aviso, o script
-  pode levar até 60 segundos para perceber e reconectar; nesse intervalo o
-  relógio mostra "SEM PC".
-- **As teclas vão para a janela em primeiro plano.** A apresentação precisa
-  estar em foco. No Windows, se o programa da apresentação estiver rodando
-  como administrador, o script também precisa estar.
-- **macOS:** exige a permissão de Acessibilidade para o terminal.
-- **O computador não pode entrar em suspensão**; o script não impede isso.
-- **Vibração.** Segundo a documentação da Garmin, nos Forerunner o app não
-  controla a intensidade da vibração. O app pede 25% nas suaves e 100% nas
-  fortes, mas a diferença que o relógio garante é a duração (50 ms contra
-  500 ms). A mesma documentação diz que o Forerunner não aceita padrões de
-  vibração; por isso as vibrações dos avisos saem uma por segundo, cada uma
-  como um pedido separado.
-- **Notificações.** O app não consegue escondê-las; é preciso silenciá-las no
-  relógio (veja
-  [Notificações durante a apresentação](#notificações-durante-a-apresentação)).
-- **Avisos de tempo só com a tela do app aberta.** Eles são disparados pelo
-  redesenho de 1 segundo da tela.
-- **Luz sempre acesa gasta bateria.** Com LUZ: LIGADA o app renova a luz do
-  visor a cada segundo; em LUZ: AUTO vale a configuração do relógio. A
-  documentação da Garmin diz que a luz sempre respeita as configurações do
-  aparelho, então falta conferir no relógio se ela fica mesmo acesa.
-- **Toque.** No 955, deslizar o dedo para a direita chega ao app como o botão
-  BACK. O app separa os dois casos (só o botão físico gera o evento de "tecla
-  apertada"); isso funcionou no simulador e ainda precisa ser conferido no
-  relógio. Segurar os botões aciona os atalhos do próprio relógio.
-- **O simulador não reproduz tudo.** Ele não tem Bluetooth, celular nem motor
-  de vibração, e devolve 404 quando o servidor é inalcançável, em vez do
-  código de erro que o relógio daria.
+- **Latency.** Each press goes through Bluetooth, the phone, the internet and
+  ntfy. It is not instant and varies with the phone and the network; if
+  Garmin Connect is "asleep" on the phone, the first press can take longer.
+- **"OK" takes longer than the slide.** The slide changes when the command
+  reaches the computer; "OK" only shows up after the confirmation, a few
+  seconds later.
+- **It needs internet on both sides** and ntfy.sh being up. There is no
+  offline mode.
+- **Hanging send.** The system, not the app, decides when to give up on a
+  request. In the simulator, a server that does not answer took 21 seconds to
+  turn into an error; during that time the banner stays on "SENDING".
+- **Queue of one command.** While a request is in progress, only the last
+  press is kept; three very quick presses become two commands.
+- **The slide counter belongs to the watch.** It adds up the commands the
+  computer confirmed. It starts at 1 and does not know how many slides there
+  are.
+- **Limits of the free ntfy.sh** (per IP address): 250 messages per day, a
+  burst of 60 requests and then one every 5 seconds, messages of up to 4,096
+  bytes, 30 simultaneous connections. Each press costs the phone one send and
+  one to three polls, and the computer one confirmation send. If the phone
+  and the computer reach the internet through the same address, they share
+  the limit, which drops to about 125 presses per day. When it is exceeded,
+  the watch shows "HTTP ERROR" with code 429.
+- **The topic is public.** Whoever knows the name can publish (and press the
+  arrows on your computer), listen or forge confirmations. Change the topic
+  if it leaks. The script only accepts `next` and `prev`.
+- **Presses made while the computer is disconnected are dropped**, on
+  purpose, so the slides do not jump by themselves on reconnection. Messages
+  stay in ntfy's cache for 12 hours, but the script never reads the cache.
+- **Silent drop.** If the computer's connection dies without notice, the
+  script can take up to 60 seconds to notice and reconnect; during that time
+  the watch shows "NO PC".
+- **Keys go to the foreground window.** The presentation has to be in focus.
+  On Windows, if the slide program is running as administrator, the script
+  has to be too.
+- **macOS:** it requires the Accessibility permission for the terminal.
+- **The computer must not go to sleep**; the script does not prevent it.
+- **Vibration.** According to Garmin's documentation, on Forerunners the app
+  does not control the vibration strength. The app asks for 25% on the soft
+  ones and 100% on the strong ones, but the difference the watch guarantees
+  is the duration (50 ms versus 500 ms). The same documentation says the
+  Forerunner does not accept vibration patterns; that is why the alert
+  vibrations come one per second, each as a separate request.
+- **Notifications.** The app cannot hide them; they have to be silenced on
+  the watch (see
+  [Notifications during a presentation](#notifications-during-a-presentation)).
+- **Time alerts only with the app's screen open.** They are fired by the
+  screen's 1-second redraw.
+- **Always-on light drains the battery.** With LIGHT: ON the app renews the
+  backlight every second; with LIGHT: AUTO the watch's own setting applies.
+  Garmin's documentation says the light always respects the device settings,
+  so whether it really stays on still has to be checked on the watch.
+- **Touch.** On the 955, swiping right reaches the app as the BACK button.
+  The app tells the two apart (only the physical button generates the "key
+  pressed" event); this worked in the simulator and still has to be checked
+  on the watch. Holding the buttons triggers the watch's own shortcuts.
+- **The simulator does not reproduce everything.** It has no Bluetooth, phone
+  or vibration motor, and it returns 404 when the server is unreachable,
+  instead of the error code the watch would give.
 
-## Estado do projeto
+## Project status
 
-É um MVP de uso pessoal, feito para um Forerunner 955 Solar.
+This is a personal-use MVP, built for a Forerunner 955 Solar.
 
-- **Usado num relógio de verdade:** passar e voltar slides com a confirmação
-  do computador, com o script no Windows.
-- **Conferido no simulador** (Connect IQ SDK 9.3.0): menu, ajustes,
-  cronômetro, avisos de tempo e mensagens de falha.
-- **Ainda sem teste:** o script no macOS e os pontos que as
-  [Limitações conhecidas](#limitações-conhecidas) marcam como ainda não
-  conferidos no relógio.
+- **Used on a real watch:** going forward and back through slides with the
+  computer's confirmation, with the script on Windows.
+- **Checked in the simulator** (Connect IQ SDK 9.3.0): menu, settings, timer,
+  time alerts and failure messages.
+- **Not tested yet:** the script on macOS and the points that
+  [Known limitations](#known-limitations) mark as still to be checked on the
+  watch.
 
-## Contribuindo
+## Contributing
 
-Sugestões e correções são bem-vindas: abra uma issue contando o que aconteceu
-(modelo do relógio, sistema do computador e o que apareceu na tela) ou mande
-um pull request. O código e os comentários estão em português, e a ideia é
-continuar pequeno: sem servidor próprio, sem app de celular e sem login.
+Suggestions and fixes are welcome: open an issue describing what happened
+(watch model, the computer's operating system and what showed up on screen)
+or send a pull request. The idea is to stay small: no server of your own, no
+phone app and no login.
 
-## Licença
+## License
 
-[MIT](LICENSE). Você pode usar, modificar e distribuir o código, desde que
-mantenha o aviso de direitos autorais e o texto da licença.
+[MIT](LICENSE). You may use, modify and distribute the code, as long as you
+keep the copyright notice and the license text.

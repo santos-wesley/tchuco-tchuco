@@ -1,5 +1,5 @@
-# Texto sempre com fim de linha LF dentro do repositório, em qualquer sistema.
+# Text is always stored with LF line endings in the repository, on any system.
 * text=auto
 
-# Binários: nunca converter.
+# Binaries: never convert.
 *.png binary
