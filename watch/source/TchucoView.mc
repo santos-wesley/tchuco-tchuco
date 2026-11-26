@@ -133,10 +133,11 @@ class TchucoView extends WatchUi.View {
             dc.drawText(w * 17 / 100, h * 71 / 100, Graphics.FONT_MEDIUM, "-", centro);
         }
         // Tempo total em que o aviso não cabe: avisa na hora, em faixa branca
-        // com letra preta. Se começar assim, só haverá o alarme do fim.
+        // com letra preta, e START fica travado. Depois de um START recusado,
+        // a faixa diz o que fazer.
         if (_controle.tela == Tela.TEMPO
                 && _controle.avisoNaoCabe(_controle.opcao)) {
-            ajuda = naoCabe();
+            ajuda = _controle.travado ? "aumente o tempo" : naoCabe();
             dc.fillRectangle(0, h * 80 / 100, w, h * 20 / 100);
             dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
         }

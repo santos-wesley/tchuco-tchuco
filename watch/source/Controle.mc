@@ -44,6 +44,7 @@ class Controle {
     var item as Number = 0;                     // menu: 0 livre, 1 cronômetro,
                                                 // 2 aviso, 3 luz
     var opcao as Number = 0;                    // valor mostrado nos ajustes
+    var travado as Boolean = false;             // START recusado: aviso não cabe
     var cronometrado as Boolean = false;        // modo da apresentação atual
     var duracaoMin as Number = 20;              // cronômetro: tempo total
     var avisoLigado as Boolean = false;         // avisos de tempo (nos dois modos)
@@ -119,6 +120,7 @@ class Controle {
             comecar(false);                     // direto para o passador livre
         } else if (item == 1) {
             opcao = duracaoMin;                 // cronômetro: pede o tempo total
+            travado = false;
             tela = Tela.TEMPO;
         } else if (item == 2) {
             opcao = avisoLigado ? 1 : 0;        // avisos: sim ou não
@@ -134,6 +136,7 @@ class Controle {
     // NÃO e SIM; nos minutos vão de 1 em 1 até 30, de 5 em 5 até 60 e de 15
     // em 15 até 180.
     function mudarOpcao(sentido as Number) as Void {
+        travado = false;
         if (tela == Tela.AVISOS) {
             opcao = 1 - opcao;
         } else {
@@ -153,9 +156,13 @@ class Controle {
         WatchUi.requestUpdate();
     }
 
-    // START nos ajustes: grava o que está na tela e segue.
+    // START nos ajustes: grava o que está na tela e segue. No tempo total,
+    // START fica travado enquanto o aviso não couber: só vibra e explica.
     function avancarAjuste() as Void {
-        if (tela == Tela.TEMPO) {
+        if (tela == Tela.TEMPO && avisoNaoCabe(opcao)) {
+            travado = true;
+            vibrar(SUAVE, LONGA_MS);
+        } else if (tela == Tela.TEMPO) {
             duracaoMin = opcao;                 // cronômetro: já começa a contar
             Application.Storage.setValue("duracaoMin", opcao);
             comecar(true);
@@ -232,8 +239,8 @@ class Controle {
     }
 
     // No cronômetro o aviso só acontece se o intervalo for menor que o tempo
-    // total: com 2 minutos de tempo, um aviso a cada 5 nunca chegaria. As
-    // telas usam isto para dizer, antes de começar, que o aviso não cabe.
+    // total: com 2 minutos de tempo, um aviso a cada 5 nunca chegaria. Por
+    // isso a tela do tempo total avisa e não deixa começar assim.
     function avisoNaoCabe(totalMin as Number) as Boolean {
         return avisoLigado && avisoMin >= totalMin;
     }
