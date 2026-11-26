@@ -1,4 +1,4 @@
-# Configuração de build do Tchuco Tchuco (fontes em source/, recursos em resources/).
+# Tchuco Tchuco build configuration (sources in source/, resources in resources/).
 project.manifest = manifest.xml
-# Checagem de tipos no nível mais rigoroso: pega uso errado da API ainda na compilação.
+# Strictest type checking: catches wrong API usage at compile time.
 project.typecheck = 3

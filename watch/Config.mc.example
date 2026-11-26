@@ -1,0 +1,13 @@
+// Tchuco Tchuco configuration: the ONLY place with the base URL and the topic.
+//
+// Copy this file to watch/source/Config.mc (ignored by git) and replace the
+// topic with a long random name, the same one used by the computer script.
+// The topic works as a password: whoever knows it can change your slides.
+import Toybox.Lang;
+
+module Config {
+    // ntfy server, without a trailing slash.
+    const BASE_URL as String = "https://ntfy.sh";
+    // Topic: only letters, digits, "-" and "_", up to 64 characters.
+    const TOPIC as String = "replace-with-a-long-random-topic";
+}

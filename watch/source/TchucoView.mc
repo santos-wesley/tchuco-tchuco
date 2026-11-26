@@ -4,220 +4,220 @@ import Toybox.System;
 import Toybox.Timer;
 import Toybox.WatchUi;
 
-// Uma única View desenha as telas do app (menu, ajustes do cronômetro e
-// apresentação), todas pensadas para o visor MIP: fundo preto e letras grandes.
+// A single View draws all the app's screens (menu, settings and
+// presentation), designed for the MIP display: black background, big letters.
 class TchucoView extends WatchUi.View {
-    // Do verde ao vermelho usando só cores que o visor de 64 cores tem.
-    private const CORES as Array<Number> = [0x00FF00, 0x55FF00, 0xAAFF00,
+    // From green to red using only colors the 64-color display has.
+    private const COLORS as Array<Number> = [0x00FF00, 0x55FF00, 0xAAFF00,
             0xFFFF00, 0xFFAA00, 0xFF5500, 0xFF0000];
 
-    private var _controle as Controle;
-    private var _relogio as Timer.Timer?;
+    private var _controller as Controller;
+    private var _clock as Timer.Timer?;
 
-    function initialize(controle as Controle) {
+    function initialize(controller as Controller) {
         View.initialize();
-        _controle = controle;
+        _controller = controller;
     }
 
-    // Enquanto a tela está visível, um "tique" por segundo: mantém a luz
-    // acesa, anda o tempo e dispara os avisos.
+    // While the screen is visible, one "tick" per second: keeps the light on,
+    // moves the clock and fires the alerts.
     function onShow() as Void {
-        var relogio = new Timer.Timer();
-        relogio.start(method(:aoTique), 1000, true);
-        _relogio = relogio;
+        var clock = new Timer.Timer();
+        clock.start(method(:onSecond), 1000, true);
+        _clock = clock;
     }
 
     function onHide() as Void {
-        var relogio = _relogio;
-        if (relogio != null) {
-            relogio.stop();
-            _relogio = null;
+        var clock = _clock;
+        if (clock != null) {
+            clock.stop();
+            _clock = null;
         }
     }
 
-    function aoTique() as Void {
-        _controle.tique();
+    function onSecond() as Void {
+        _controller.tick();
         WatchUi.requestUpdate();
     }
 
     function onUpdate(dc as Graphics.Dc) as Void {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_BLACK);
         dc.clear();
-        if (_controle.tela == Tela.MENU) {
-            desenharMenu(dc);
-        } else if (_controle.tela == Tela.SLIDES) {
-            desenharSlides(dc);
+        if (_controller.screen == Screen.MENU) {
+            drawMenu(dc);
+        } else if (_controller.screen == Screen.SLIDES) {
+            drawSlides(dc);
         } else {
-            desenharAjuste(dc);
+            drawSetting(dc);
         }
     }
 
-    // Uma opção de lista: a destacada vai em tarja branca com letra preta.
-    private function desenharOpcao(dc as Graphics.Dc, y as Number,
-            texto as String, destacada as Boolean) as Void {
+    // One list option: the highlighted one goes in a white box, black text.
+    private function drawOption(dc as Graphics.Dc, y as Number,
+            text as String, highlighted as Boolean) as Void {
         var cx = dc.getWidth() / 2;
-        var alt = dc.getHeight() * 15 / 100;
-        if (destacada) {
-            var larg = dc.getTextWidthInPixels(texto, Graphics.FONT_SMALL) + 28;
+        var boxH = dc.getHeight() * 15 / 100;
+        if (highlighted) {
+            var boxW = dc.getTextWidthInPixels(text, Graphics.FONT_SMALL) + 28;
             dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_WHITE);
-            dc.fillRoundedRectangle(cx - larg / 2, y - alt / 2, larg, alt, 10);
+            dc.fillRoundedRectangle(cx - boxW / 2, y - boxH / 2, boxW, boxH, 10);
             dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
         } else {
             dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         }
-        dc.drawText(cx, y, Graphics.FONT_SMALL, texto,
+        dc.drawText(cx, y, Graphics.FONT_SMALL, text,
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
     }
 
-    // Menu inicial: quatro opções e, embaixo, uma linha explicando a que está
-    // destacada. UP/DOWN escolhem, START confirma.
-    private function desenharMenu(dc as Graphics.Dc) as Void {
+    // Start menu: four options and, at the bottom, a line explaining the
+    // highlighted one. UP/DOWN choose, START confirms.
+    private function drawMenu(dc as Graphics.Dc) as Void {
         var h = dc.getHeight();
-        var aviso = _controle.avisoLigado;
-        var rotulos = ["LIVRE", "CRONÔMETRO",
-                aviso ? "AVISO: " + _controle.avisoMin + " MIN" : "AVISO: NÃO",
-                _controle.luz ? "LUZ: LIGADA" : "LUZ: AUTO"];
-        var crono = _controle.duracaoMin + " min" + (aviso
-                ? ", aviso " + _controle.avisoMin : ", sem aviso");
-        if (_controle.avisoNaoCabe(_controle.duracaoMin)) {
-            crono = naoCabe();
+        var alert = _controller.alertOn;
+        var labels = ["FREE", "TIMER",
+                alert ? "ALERT: " + _controller.alertMin + " MIN" : "ALERT: OFF",
+                _controller.light ? "LIGHT: ON" : "LIGHT: AUTO"];
+        var timerHint = _controller.totalMin + " min" + (alert
+                ? ", alert " + _controller.alertMin : ", no alert");
+        if (_controller.alertDoesNotFit(_controller.totalMin)) {
+            timerHint = doesNotFit();
         }
-        var ajudas = [
-                aviso ? "aviso a cada " + _controle.avisoMin + " min"
-                        : "sem aviso de tempo",
-                crono,
-                "vale nos dois modos",
-                "START troca"];
-        for (var i = 0; i < rotulos.size(); i++) {
-            desenharOpcao(dc, h * (20 + 17 * i) / 100, rotulos[i],
-                    i == _controle.item);
+        var hints = [
+                alert ? "alert every " + _controller.alertMin + " min"
+                        : "no time alerts",
+                timerHint,
+                "for both modes",
+                "START toggles"];
+        for (var i = 0; i < labels.size(); i++) {
+            drawOption(dc, h * (20 + 17 * i) / 100, labels[i],
+                    i == _controller.item);
         }
         dc.drawText(dc.getWidth() / 2, h * 87 / 100, Graphics.FONT_XTINY,
-                ajudas[_controle.item],
+                hints[_controller.item],
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    // No cronômetro, o texto que diz que o intervalo dos avisos é igual ou
-    // maior que o tempo total (ex.: 2 minutos de tempo, aviso a cada 5).
-    private function naoCabe() as String {
-        return "aviso " + _controle.avisoMin + " não cabe";
+    // In timer mode, the text saying the alert interval is equal to or longer
+    // than the total time (e.g. 2 minutes of time, an alert every 5).
+    private function doesNotFit() as String {
+        return "alert " + _controller.alertMin + " won't fit";
     }
 
-    // Ajustes. Minutos: o valor grande no centro, "+" ao lado do botão UP e
-    // "-" ao lado do DOWN. Avisos: escolha entre NÃO e SIM. START segue,
-    // BACK volta.
-    private function desenharAjuste(dc as Graphics.Dc) as Void {
+    // Settings. Minutes: the big value in the middle, "+" next to the UP
+    // button and "-" next to DOWN. Alerts: a choice between NO and YES. START
+    // moves on, BACK goes back.
+    private function drawSetting(dc as Graphics.Dc) as Void {
         var w = dc.getWidth();
         var h = dc.getHeight();
         var cx = w / 2;
-        var centro = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
-        var titulo = "TEMPO TOTAL";
-        var ajuda = "START começa";
-        if (_controle.tela == Tela.AVISOS) {
-            titulo = "AVISOS";
-            ajuda = "START confirma";
-        } else if (_controle.tela == Tela.AVISO) {
-            titulo = "AVISO A CADA";
-            ajuda = "START grava";
+        var center = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
+        var title = "TOTAL TIME";
+        var hint = "START to begin";
+        if (_controller.screen == Screen.ALERTS) {
+            title = "ALERTS";
+            hint = "START to confirm";
+        } else if (_controller.screen == Screen.ALERT_EVERY) {
+            title = "ALERT EVERY";
+            hint = "START to save";
         }
-        dc.drawText(cx, h * 21 / 100, Graphics.FONT_SMALL, titulo, centro);
-        if (_controle.tela == Tela.AVISOS) {
-            desenharOpcao(dc, h * 42 / 100, "NÃO", _controle.opcao == 0);
-            desenharOpcao(dc, h * 62 / 100, "SIM", _controle.opcao == 1);
+        dc.drawText(cx, h * 21 / 100, Graphics.FONT_SMALL, title, center);
+        if (_controller.screen == Screen.ALERTS) {
+            drawOption(dc, h * 42 / 100, "NO", _controller.value == 0);
+            drawOption(dc, h * 62 / 100, "YES", _controller.value == 1);
         } else {
             dc.drawText(cx, h * 48 / 100, Graphics.FONT_NUMBER_HOT,
-                    _controle.opcao.format("%d"), centro);
-            dc.drawText(cx, h * 71 / 100, Graphics.FONT_SMALL, "MIN", centro);
-            dc.drawText(w * 11 / 100, h * 48 / 100, Graphics.FONT_MEDIUM, "+", centro);
-            dc.drawText(w * 17 / 100, h * 71 / 100, Graphics.FONT_MEDIUM, "-", centro);
+                    _controller.value.format("%d"), center);
+            dc.drawText(cx, h * 71 / 100, Graphics.FONT_SMALL, "MIN", center);
+            dc.drawText(w * 11 / 100, h * 48 / 100, Graphics.FONT_MEDIUM, "+", center);
+            dc.drawText(w * 17 / 100, h * 71 / 100, Graphics.FONT_MEDIUM, "-", center);
         }
-        // Tempo total em que o aviso não cabe: avisa na hora, em faixa branca
-        // com letra preta, e START fica travado. Depois de um START recusado,
-        // a faixa diz o que fazer.
-        if (_controle.tela == Tela.TEMPO
-                && _controle.avisoNaoCabe(_controle.opcao)) {
-            ajuda = _controle.travado ? "aumente o tempo" : naoCabe();
+        // A total time the alert does not fit in: says so right away, in a
+        // white band with black text, and START stays blocked. After a refused
+        // START, the band says what to do.
+        if (_controller.screen == Screen.TOTAL
+                && _controller.alertDoesNotFit(_controller.value)) {
+            hint = _controller.blocked ? "increase the time" : doesNotFit();
             dc.fillRectangle(0, h * 80 / 100, w, h * 20 / 100);
             dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
         }
-        dc.drawText(cx, h * 88 / 100, Graphics.FONT_XTINY, ajuda, centro);
+        dc.drawText(cx, h * 88 / 100, Graphics.FONT_XTINY, hint, center);
     }
 
-    // Apresentação: o tempo no centro e o contador de slides embaixo. O aviso
-    // do topo (envio, OK, falhas) é sempre branco com letra preta, para não
-    // se confundir com as cores do tempo, e some sozinho.
-    private function desenharSlides(dc as Graphics.Dc) as Void {
+    // Presentation: the time in the middle and the slide counter below. The
+    // top banner (sending, OK, failures) is always white with black text, so
+    // it is not mistaken for the time colors, and it goes away by itself.
+    private function drawSlides(dc as Graphics.Dc) as Void {
         var w = dc.getWidth();
         var h = dc.getHeight();
         var cx = w / 2;
-        var centro = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
+        var center = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
 
-        var status = _controle.status;
-        var detalhe = _controle.detalhe;
-        var visivel = _controle.statusVisivel();
-        if (_controle.saindo) {
-            detalhe = "para sair";
-            status = "BACK DE NOVO";
-            visivel = true;
+        var status = _controller.status;
+        var detail = _controller.detail;
+        var visible = _controller.statusVisible();
+        if (_controller.exiting) {
+            detail = "to exit";
+            status = "BACK AGAIN";
+            visible = true;
         }
-        if (visivel) {
+        if (visible) {
             dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_WHITE);
             dc.fillRectangle(0, 0, w, h * 30 / 100);
             dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, h * 9 / 100, Graphics.FONT_XTINY, detalhe, centro);
-            dc.drawText(cx, h * 20 / 100, Graphics.FONT_SMALL, status, centro);
+            dc.drawText(cx, h * 9 / 100, Graphics.FONT_XTINY, detail, center);
+            dc.drawText(cx, h * 20 / 100, Graphics.FONT_SMALL, status, center);
         }
 
-        // Modo livre: cronômetro branco, contando para cima a partir do
-        // primeiro slide passado.
-        // Cronometrado: contagem regressiva, que já começa ao abrir esta tela
-        // e vai do verde ao vermelho; depois do fim, mostra em vermelho
-        // quanto passou ("+MM:SS").
-        var seg = _controle.decorrido();
-        var corTempo = Graphics.COLOR_WHITE as Graphics.ColorType;
-        var sinal = "";
-        if (_controle.cronometrado) {
-            var total = _controle.duracaoMin * 60;
-            var etapa = CORES.size() - 1;           // tempo esgotado: vermelho
-            seg = total - seg;
-            if (seg >= 0) {
-                etapa = (total - seg) * CORES.size() / total;
-                if (etapa >= CORES.size()) {
-                    etapa = CORES.size() - 1;
+        // Free mode: white stopwatch, counting up from the first slide change.
+        // Timer mode: a countdown that starts as soon as this screen opens and
+        // goes from green to red; after the end, it shows in red how far over
+        // the limit it is ("+MM:SS").
+        var sec = _controller.elapsed();
+        var timeColor = Graphics.COLOR_WHITE as Graphics.ColorType;
+        var sign = "";
+        if (_controller.timed) {
+            var total = _controller.totalMin * 60;
+            var stage = COLORS.size() - 1;          // time is up: red
+            sec = total - sec;
+            if (sec >= 0) {
+                stage = (total - sec) * COLORS.size() / total;
+                if (stage >= COLORS.size()) {
+                    stage = COLORS.size() - 1;
                 }
             } else {
-                seg = -seg;
-                sinal = "+";
+                sec = -sec;
+                sign = "+";
             }
-            corTempo = CORES[etapa];
+            timeColor = COLORS[stage];
         }
-        var tempo = ((seg % 3600) / 60).format("%02d") + ":"
-                + (seg % 60).format("%02d");
-        if (seg >= 3600) {
-            tempo = (seg / 3600).format("%d") + ":" + tempo;
+        var clockText = ((sec % 3600) / 60).format("%02d") + ":"
+                + (sec % 60).format("%02d");
+        if (sec >= 3600) {
+            clockText = (sec / 3600).format("%d") + ":" + clockText;
         }
-        tempo = sinal + tempo;
-        // Na maior fonte de números que couber.
-        var fonte = Graphics.FONT_NUMBER_THAI_HOT;
-        if (dc.getTextWidthInPixels(tempo, fonte) > w - 20) {
-            fonte = Graphics.FONT_NUMBER_HOT;
+        clockText = sign + clockText;
+        // In the largest number font that fits.
+        var font = Graphics.FONT_NUMBER_THAI_HOT;
+        if (dc.getTextWidthInPixels(clockText, font) > w - 20) {
+            font = Graphics.FONT_NUMBER_HOT;
         }
-        if (dc.getTextWidthInPixels(tempo, fonte) > w - 20) {
-            fonte = Graphics.FONT_NUMBER_MEDIUM;
+        if (dc.getTextWidthInPixels(clockText, font) > w - 20) {
+            font = Graphics.FONT_NUMBER_MEDIUM;
         }
-        if (_controle.avisando) {
-            // Aviso de tempo: o meio da tela acende na cor do momento.
-            dc.setColor(corTempo, corTempo);
+        if (_controller.alerting) {
+            // Time alert: the middle of the screen lights up in the current
+            // time color.
+            dc.setColor(timeColor, timeColor);
             dc.fillRectangle(0, h * 33 / 100, w, h * 35 / 100);
             dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
         } else {
-            dc.setColor(corTempo, Graphics.COLOR_TRANSPARENT);
+            dc.setColor(timeColor, Graphics.COLOR_TRANSPARENT);
         }
-        dc.drawText(cx, h * 50 / 100, fonte, tempo, centro);
+        dc.drawText(cx, h * 50 / 100, font, clockText, center);
 
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, h * 80 / 100, Graphics.FONT_MEDIUM,
-                "SLIDE " + _controle.slide, centro);
+                "SLIDE " + _controller.slide, center);
     }
 }

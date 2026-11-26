@@ -2,109 +2,110 @@ import Toybox.Lang;
 import Toybox.System;
 import Toybox.WatchUi;
 
-// Tudo é feito só pelos botões físicos; a tela sensível ao toque é ignorada.
+// Everything is done with the physical buttons only; the touchscreen is
+// ignored.
 //
-//   Menu inicial   UP/DOWN escolhem, START confirma, BACK fecha o app
-//   Ajustes        UP e DOWN mudam o valor, START segue, BACK volta
-//   Apresentação   START = próximo slide, DOWN = slide anterior,
-//                  BACK duas vezes = volta para o menu
+//   Start menu     UP/DOWN choose, START confirms, BACK closes the app
+//   Settings       UP and DOWN change the value, START moves on, BACK goes back
+//   Presentation   START = next slide, DOWN = previous slide,
+//                  BACK twice = back to the menu
 //
-// Usa InputDelegate (e não BehaviorDelegate) de propósito: no BehaviorDelegate
-// um toque na tela vira onSelect e um deslizar vira onNextPage/onPreviousPage.
-// O app também não abre telas do sistema (menu, confirmação), porque elas
-// aceitam toque.
+// It uses InputDelegate (not BehaviorDelegate) on purpose: with
+// BehaviorDelegate a tap becomes onSelect and a swipe becomes
+// onNextPage/onPreviousPage. The app also never opens system screens (menu,
+// confirmation), because those accept touch.
 class TchucoDelegate extends WatchUi.InputDelegate {
-    private var _controle as Controle;
-    private var _backEm as Number = 0;    // quando o BACK físico foi apertado
-    private var _toqueEm as Number = 0;   // quando a tela foi tocada pela última vez
+    private var _controller as Controller;
+    private var _backPressedAt as Number = 0;   // when physical BACK was pressed
+    private var _touchedAt as Number = 0;       // when the screen was last touched
 
-    function initialize(controle as Controle) {
+    function initialize(controller as Controller) {
         InputDelegate.initialize();
-        _controle = controle;
+        _controller = controller;
     }
 
-    // Só botão físico gera onKeyPressed; guarda o momento em que foi o BACK.
-    function onKeyPressed(evento as WatchUi.KeyEvent) as Boolean {
-        if (evento.getKey() == WatchUi.KEY_ESC) {
-            _backEm = System.getTimer();
+    // Only a physical button generates onKeyPressed; stores when it was BACK.
+    function onKeyPressed(event as WatchUi.KeyEvent) as Boolean {
+        if (event.getKey() == WatchUi.KEY_ESC) {
+            _backPressedAt = System.getTimer();
         }
         return false;
     }
 
-    function onKey(evento as WatchUi.KeyEvent) as Boolean {
-        var tecla = evento.getKey();
-        var start = (tecla == WatchUi.KEY_ENTER);
-        var up = (tecla == WatchUi.KEY_UP);
-        var down = (tecla == WatchUi.KEY_DOWN);
-        // No 955, deslizar o dedo para a direita também chega como BACK.
-        // Vale como BACK de verdade se o botão foi apertado agora há pouco
-        // ou, na dúvida, se a tela não acabou de ser tocada.
-        var agora = System.getTimer();
-        var back = (tecla == WatchUi.KEY_ESC)
-                && (agora - _backEm < 2000 || agora - _toqueEm > 800);
+    function onKey(event as WatchUi.KeyEvent) as Boolean {
+        var key = event.getKey();
+        var start = (key == WatchUi.KEY_ENTER);
+        var up = (key == WatchUi.KEY_UP);
+        var down = (key == WatchUi.KEY_DOWN);
+        // On the 955, swiping right also arrives as BACK. It counts as a real
+        // BACK if the button was pressed just now or, when in doubt, if the
+        // screen was not touched a moment ago.
+        var now = System.getTimer();
+        var back = (key == WatchUi.KEY_ESC)
+                && (now - _backPressedAt < 2000 || now - _touchedAt > 800);
 
-        if (_controle.tela == Tela.SLIDES) {
+        if (_controller.screen == Screen.SLIDES) {
             if (start) {
-                _controle.comando("next");
+                _controller.command("next");
             } else if (down) {
-                _controle.comando("prev");
-            } else if (back && _controle.pedirSaida()) {
-                _controle.irParaMenu();             // segundo BACK
+                _controller.command("prev");
+            } else if (back && _controller.requestExit()) {
+                _controller.goToMenu();             // second BACK
             }
-        } else if (_controle.tela == Tela.MENU) {
+        } else if (_controller.screen == Screen.MENU) {
             if (up) {
-                _controle.moverMenu(-1);
+                _controller.moveMenu(-1);
             } else if (down) {
-                _controle.moverMenu(1);
+                _controller.moveMenu(1);
             } else if (start) {
-                _controle.escolherMenu();
+                _controller.selectMenu();
             } else if (back) {
                 System.exit();
             }
         } else {
             if (up) {
-                _controle.mudarOpcao(1);            // mais minutos
+                _controller.changeValue(1);         // more minutes
             } else if (down) {
-                _controle.mudarOpcao(-1);           // menos minutos
+                _controller.changeValue(-1);        // fewer minutes
             } else if (start) {
-                _controle.avancarAjuste();
+                _controller.confirmSetting();
             } else if (back) {
-                _controle.voltarAjuste();
+                _controller.backFromSetting();
             }
         }
-        // As quatro teclas do app nunca passam para o sistema; as outras
-        // (por exemplo, segurar UP) seguem o comportamento padrão.
-        return start || up || down || (tecla == WatchUi.KEY_ESC);
+        // The app's four keys never reach the system; the others (for example,
+        // holding UP) keep their default behavior.
+        return start || up || down || (key == WatchUi.KEY_ESC);
     }
 
-    // Toques na tela: só anota o momento e devolve true, que avisa o sistema
-    // de que o evento já foi tratado. Nada mais acontece.
-    private function toque() as Boolean {
-        _toqueEm = System.getTimer();
+    // Touches: only records the moment and returns true, which tells the
+    // system the event was handled. Nothing else happens.
+    private function touch() as Boolean {
+        _touchedAt = System.getTimer();
         return true;
     }
 
-    function onTap(evento as WatchUi.ClickEvent) as Boolean {
-        return toque();
+    function onTap(event as WatchUi.ClickEvent) as Boolean {
+        return touch();
     }
 
-    function onHold(evento as WatchUi.ClickEvent) as Boolean {
-        return toque();
+    function onHold(event as WatchUi.ClickEvent) as Boolean {
+        return touch();
     }
 
-    function onRelease(evento as WatchUi.ClickEvent) as Boolean {
-        return toque();
+    function onRelease(event as WatchUi.ClickEvent) as Boolean {
+        return touch();
     }
 
-    function onSwipe(evento as WatchUi.SwipeEvent) as Boolean {
-        return toque();
+    function onSwipe(event as WatchUi.SwipeEvent) as Boolean {
+        return touch();
     }
 
-    function onDrag(evento as WatchUi.DragEvent) as Boolean {
-        return toque();
+    function onDrag(event as WatchUi.DragEvent) as Boolean {
+        return touch();
     }
 
-    function onFlick(evento as WatchUi.FlickEvent) as Boolean {
-        return toque();
+    function onFlick(event as WatchUi.FlickEvent) as Boolean {
+        return touch();
     }
 }
